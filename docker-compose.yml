@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: spareparts
+      POSTGRES_USER: spareparts_admin
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in .env}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in .env}
+      MIGRATION_DB_PASSWORD: ${MIGRATION_DB_PASSWORD:?Set MIGRATION_DB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/database/001-local-roles.sql:/docker-entrypoint-initdb.d/001-local-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spareparts_admin -d spareparts"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  pgadmin:
+    image: dpage/pgadmin4:9
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:?Set PGADMIN_EMAIL in .env}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?Set PGADMIN_PASSWORD in .env}
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "True"
+    ports:
+      - "127.0.0.1:${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+volumes:
+  postgres-data:
+  pgadmin-data:
