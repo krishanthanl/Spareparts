@@ -71,6 +71,16 @@ public sealed class ApiTests
 
     [Theory]
     [InlineData("")]
+    [InlineData("malformed-do-not-expose")]
+    public void Invalid_production_configuration_returns_safe_startup_validation(string connection)
+    {
+        using var factory = new FoundationFactory(connection, "Production");
+        var exception = Assert.Throws<Microsoft.Extensions.Options.OptionsValidationException>(() => factory.CreateClient());
+        Assert.Contains("database connection", exception.Message);
+        Assert.DoesNotContain("malformed-do-not-expose", exception.ToString());
+    }
+    [Theory]
+    [InlineData("")]
     [InlineData("*")]
     [InlineData("http://localhost:5173/path")]
     [InlineData("javascript:alert(1)")]
@@ -82,14 +92,14 @@ public sealed class ApiTests
     public void Connection_validation_fails_without_echoing_input(string connection) => Assert.False(DatabaseSettings.IsValid(connection));
 }
 
-public sealed class FoundationFactory : WebApplicationFactory<Program>
+public sealed class FoundationFactory(string? connection = null, string environment = "Testing") : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
-        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string,string?>
+        builder.UseEnvironment(environment);
+        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["ConnectionStrings:DefaultConnection"] = "Host=127.0.0.1;Port=1;Database=unavailable;Username=test;Timeout=1;Pooling=false",
+            ["ConnectionStrings:DefaultConnection"] = connection ?? "Host=127.0.0.1;Port=1;Database=unavailable;Username=test;Timeout=1;Pooling=false",
             ["Cors:Origins:0"] = "http://localhost:5173",
             ["Cors:Origins:1"] = "http://localhost:5174"
         }));

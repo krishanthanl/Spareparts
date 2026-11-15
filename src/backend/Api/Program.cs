@@ -21,7 +21,7 @@ builder.Services.AddSerilog(logging => logging.MinimumLevel.Information()
     .Enrich.FromLogContext().WriteTo.Console());
 builder.Services.AddOptions<DatabaseSettings>().BindConfiguration("ConnectionStrings")
     .Validate(x => DatabaseSettings.IsValid(x.DefaultConnection), "A valid database connection is required; configure ConnectionStrings:DefaultConnection using secrets or environment variables.")
-    .Validate(x => builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing") || new Npgsql.NpgsqlConnectionStringBuilder(x.DefaultConnection).SslMode == Npgsql.SslMode.VerifyFull,
+    .Validate(x => builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing") || (DatabaseSettings.IsValid(x.DefaultConnection) && new Npgsql.NpgsqlConnectionStringBuilder(x.DefaultConnection).SslMode == Npgsql.SslMode.VerifyFull),
         "Production database connections require SSL Mode=VerifyFull.")
     .ValidateOnStart();
 builder.Services.AddOptions<CorsSettings>().BindConfiguration("Cors")
