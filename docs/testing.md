@@ -38,3 +38,13 @@ No stock/GRN/invoice/return implementation exists yet. Their transaction, race, 
 ## Recorded Phase 0 results (2026-11-15)
 
 20 backend unit/API tests, 10 frontend tests and 6 browser smoke checks passed. Both frontend production builds, type checks, lint and formatting passed. Backend builds pass. The real PostgreSQL test compiles but is explicitly skipped (1); live Compose/database/role-grant/readiness-recovery verification remains pending infrastructure. Compose configuration parsed successfully with the available standalone plugin. These results do not establish production or hosted Prisma readiness.
+
+## Recorded Phase 2 results (2026-11-16)
+
+- Backend: 77 unit/API tests passed — validators (years, reorder, SKU, paging/sort whitelist), image decoding and rejection (non-images, SVG/HTML, oversize bytes and pixels), storage key safety, model/migration snapshot, fail-closed authorization (401/403), field errors.
+- PostgreSQL: 7 integration tests compile and are skipped here (no Docker). They apply the real migrations to a new throwaway database and cover SKU reuse/restore conflicts, soft-delete filtering, category delete blocking, case-insensitive names, fitment year boundaries, check constraints and public visibility. **Not yet run against a real database.**
+- Import tool: dry run over the 100 sample images passed (all decode within limits). The real import has not been run (no database).
+- Frontend: admin 10 and public 8 Vitest tests passed; both builds, type checks, lint and format check passed. Browser smoke checks: 6 passed (desktop and mobile).
+- Not verified: admin screens against a signed-in API (sign-in is Phase 1); the public parts grid with real imported data.
+
+Enable the PostgreSQL tests with RUN_POSTGRES_TESTS=1 (Docker) or TEST_POSTGRES_CONNECTION; the catalogue tests also need permission to create and drop a database.
