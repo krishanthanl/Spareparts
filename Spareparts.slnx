@@ -6,6 +6,9 @@
     <Project Path="src/backend/Domain/Domain.csproj" />
     <Project Path="src/backend/Infrastructure/Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/CatalogImport/CatalogImport.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Backend.IntegrationTests/Backend.IntegrationTests.csproj" />
     <Project Path="tests/Backend.UnitTests/Backend.UnitTests.csproj" />
