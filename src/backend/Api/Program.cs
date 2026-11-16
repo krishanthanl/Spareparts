@@ -7,7 +7,10 @@ using Api.Observability;
 using Api.Validation;
 using Application.Common;
 using FluentValidation;
+using Infrastructure;
 using Infrastructure.Persistence;
+using Infrastructure.Storage;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -42,6 +45,13 @@ builder.Services.AddDbContext<AppDbContext>((services, options) => options
     .UseNpgsql(services.GetRequiredService<IOptions<DatabaseSettings>>().Value.DefaultConnection,
         postgres => postgres.CommandTimeout(15))
     .AddInterceptors(services.GetRequiredService<AuditSaveChangesInterceptor>()));
+var storageSettings = builder.Configuration.GetSection("Storage").Get<StorageSettings>() ?? new StorageSettings();
+storageSettings.LocalRoot = Path.GetFullPath(storageSettings.LocalRoot, builder.Environment.ContentRootPath);
+builder.Services.AddCatalogInfrastructure(storageSettings);
+builder.Services.AddAuthentication(NoSignInYetHandler.SchemeName)
+    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, NoSignInYetHandler>(NoSignInYetHandler.SchemeName, null);
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(Permissions.CatalogManage, policy => policy.RequireAuthenticatedUser().RequireClaim(Permissions.ClaimType, Permissions.CatalogManage));
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
 {
     context.ProblemDetails.Extensions["traceId"] = Activity.Current?.TraceId.ToString() ?? context.HttpContext.TraceIdentifier;
@@ -66,6 +76,21 @@ if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"
     app.UseHttpsRedirection();
 }
 app.UseCors();
+Directory.CreateDirectory(storageSettings.LocalRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(storageSettings.LocalRoot),
+    RequestPath = storageSettings.PublicPath,
+    ServeUnknownFileTypes = false,
+    OnPrepareResponse = context =>
+    {
+        // Stored file names are random and never reused, so they can be cached for a long time.
+        context.Context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+        context.Context.Response.Headers.XContentTypeOptions = "nosniff";
+    },
+});
+app.UseAuthentication();
+app.UseAuthorization();
 if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });

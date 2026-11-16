@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using Domain.Catalog;
 using Domain.Common;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,6 +7,13 @@ namespace Infrastructure.Persistence;
 
 public class AppDbContext(DbContextOptions options) : DbContext(options)
 {
+    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<Item> Items => Set<Item>();
+    public DbSet<ItemImage> ItemImages => Set<ItemImage>();
+    public DbSet<ItemFitment> ItemFitments => Set<ItemFitment>();
+    public DbSet<VehicleMake> VehicleMakes => Set<VehicleMake>();
+    public DbSet<VehicleModel> VehicleModels => Set<VehicleModel>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<decimal>().HavePrecision(18, 2);
@@ -15,6 +23,7 @@ public class AppDbContext(DbContextOptions options) : DbContext(options)
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
         foreach (var type in modelBuilder.Model.GetEntityTypes())
         {
             if (typeof(AuditableEntity).IsAssignableFrom(type.ClrType))

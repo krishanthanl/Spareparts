@@ -17,7 +17,8 @@ public sealed class PersistenceTests
         Assert.NotEmpty(entity.GetDeclaredQueryFilters());
         Assert.Contains("IsDeleted", db.Probes.ToQueryString());
         Assert.Contains("NOT", db.Probes.ToQueryString());
-        Assert.Empty(new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql("Host=localhost;Database=test").Options).Model.GetEntityTypes());
+        var production = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql("Host=localhost;Database=test").Options).Model.GetEntityTypes().Select(x => x.ClrType.Name).Order().ToArray();
+        Assert.Equal(["Category", "Item", "ItemFitment", "ItemImage", "VehicleMake", "VehicleModel"], production);
     }
 
     [Fact]

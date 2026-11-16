@@ -16,6 +16,14 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problems, ILog
                 .ToDictionary(x => x.Key, x => x.Select(e => e.ErrorMessage).Distinct().ToArray()))
             { Status = 400, Title = "One or more validation errors occurred." };
         }
+        else if (exception is Application.Common.NotFoundException notFound)
+        {
+            detail = new ProblemDetails { Status = 404, Title = "Not found.", Detail = notFound.Message };
+        }
+        else if (exception is Application.Common.ConflictException conflict)
+        {
+            detail = new ProblemDetails { Status = 409, Title = "The change conflicts with existing data.", Detail = conflict.Message };
+        }
         else if (exception is BadHttpRequestException)
         {
             detail = new ProblemDetails { Status = 400, Title = "The request could not be read." };
