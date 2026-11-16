@@ -1,7 +1,10 @@
 import { useState, type FormEvent } from 'react';
+import { useCategories } from '../api/catalog';
 import { shopContact } from '../lib/contact';
+import { CategoryGrid, PartsGrid } from './PartsCatalog';
 
-const categories = [
+/** Shown only when the live catalogue can't be reached. */
+const fallbackCategories = [
   { code: '01', name: 'Engine', detail: 'Gaskets, belts, mounts, sensors' },
   { code: '02', name: 'Brakes', detail: 'Pads, rotors, calipers, lines' },
   { code: '03', name: 'Suspension', detail: 'Shocks, struts, arms, bushes' },
@@ -16,40 +19,51 @@ const categories = [
   { code: '08', name: 'Body & lighting', detail: 'Lamps, mirrors, panels' },
 ];
 
-function PartSearch() {
+const scrollToParts = () =>
+  document.getElementById('parts')?.scrollIntoView({ behavior: 'smooth' });
+
+function PartSearch({ onSearch }: { onSearch: (q: string) => void }) {
   const [query, setQuery] = useState('');
-  const [submitted, setSubmitted] = useState<string | null>(null);
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    setSubmitted(query.trim());
+    onSearch(query.trim().slice(0, 100));
+    scrollToParts();
   };
   return (
     <section className="search-band" aria-labelledby="search-title">
       <h2 id="search-title">Find a part</h2>
       <form className="search-form" role="search" onSubmit={onSubmit}>
         <label htmlFor="part-search" className="visually-hidden">
-          Search by rego plate, part number or keyword
+          Search by part name, part number or brand
         </label>
         <input
           id="part-search"
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rego, part no. or keyword"
+          placeholder="Part name, part no. or brand"
           autoComplete="off"
+          maxLength={100}
         />
         <button type="submit">Search</button>
       </form>
-      <p className="search-note" role="status">
-        {submitted
-          ? `Online search opens soon. Call or email us about “${submitted}” and we’ll find it.`
-          : 'Search by NZ rego plate, OEM part number or keyword.'}
+      <p className="search-note">
+        Search by part name, part number or brand. Not sure? Give us your rego
+        and we’ll find it.
       </p>
     </section>
   );
 }
 
 export function Home() {
+  const [q, setQ] = useState('');
+  const [category, setCategory] = useState('');
+  const categories = useCategories();
+  const live = categories.data ?? [];
+  const pick = (slug: string) => {
+    setCategory(slug);
+    scrollToParts();
+  };
   return (
     <>
       <section className="hero" aria-labelledby="hero-title">
@@ -61,7 +75,7 @@ export function Home() {
             owners — from daily drivers to work utes.
           </p>
           <div className="hero-actions">
-            <a className="btn btn-primary" href="#categories">
+            <a className="btn btn-primary" href="#parts">
               Browse parts
             </a>
             <a className="btn btn-ghost" href="#contact">
@@ -85,7 +99,7 @@ export function Home() {
         </ul>
       </section>
 
-      <PartSearch />
+      <PartSearch onSearch={setQ} />
 
       <section
         id="categories"
@@ -96,16 +110,29 @@ export function Home() {
           <h2 id="categories-title">Product categories</h2>
           <p>Everything under the bonnet, and the bits around it.</p>
         </div>
-        <ul className="category-grid">
-          {categories.map((c) => (
-            <li key={c.code} className="category-card">
-              <span className="category-code">{c.code}</span>
-              <h3>{c.name}</h3>
-              <p>{c.detail}</p>
-            </li>
-          ))}
-        </ul>
+        {live.length > 0 ? (
+          <CategoryGrid categories={live} selected={category} onSelect={pick} />
+        ) : (
+          <ul className="category-grid">
+            {fallbackCategories.map((c) => (
+              <li key={c.code}>
+                <div className="category-card">
+                  <span className="category-code">{c.code}</span>
+                  <h3>{c.name}</h3>
+                  <p>{c.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
+
+      <PartsGrid
+        category={category}
+        q={q}
+        categories={live}
+        onCategory={setCategory}
+      />
 
       <section id="contact" className="contact" aria-labelledby="contact-title">
         <div className="section-head">
