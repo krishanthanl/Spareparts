@@ -1,6 +1,6 @@
 # Phase 2 Catalog — Design Proposal
 
-Status: **proposed, awaiting approval.** Nothing in this file is approved until you say so. Approved decisions will move to `docs/decisions/0002-catalog.md`.
+Status: **approved 2026-11-16** as proposed. Recorded in `docs/decisions/0002-catalog.md`.
 
 Spec: `Plan/Masterprompt.md`, `Plan/Phase2-CatalogCategoriesItems.md`.
 Sample data: `D:\GitLabRepos\test-project` (100 images, `src/data/parts.json`, `scripts/generate-catalog.mjs`).
@@ -130,7 +130,7 @@ You need PostgreSQL running. Phase 0 notes say Docker wasn't available, so this 
 1. Start Postgres: `docker compose up -d` (needs `.env` with the passwords — see `docs/configuration.md`).
 2. Set the migration connection (as the `spareparts_migrator` role) in your shell, not in a file.
 3. Apply the migration:
-   `./scripts/dotnet.ps1 ef database update --project src/backend/Infrastructure --startup-project src/backend/Api`
+   `./scripts/dotnet.ps1 ef database update --project src/backend/Infrastructure --startup-project src/backend/Infrastructure`
 4. Run the importer (section 5).
 5. Check in pgAdmin (`http://localhost:5050`) that `categories` has 6 rows and `items` has 100.
 

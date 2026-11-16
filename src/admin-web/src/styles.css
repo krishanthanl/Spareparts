@@ -176,7 +176,12 @@ button {
   }
   .sidebar nav {
     display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
     margin-top: 18px;
+  }
+  .sidebar nav a {
+    padding: 8px 10px;
   }
   .topbar {
     height: 56px;

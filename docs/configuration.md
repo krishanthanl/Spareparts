@@ -44,11 +44,31 @@ Prisma Free quotas and backup features must be verified at deployment time. Inde
 ```powershell
 ./scripts/dotnet.ps1 tool restore
 # Set ConnectionStrings__MigrationConnection securely outside shell history first.
-./scripts/dotnet.ps1 ef migrations add <ApprovedMigrationName> --project src/backend/Infrastructure --startup-project src/backend/Api
-./scripts/dotnet.ps1 ef database update --project src/backend/Infrastructure --startup-project src/backend/Api
+./scripts/dotnet.ps1 ef migrations add <ApprovedMigrationName> --project src/backend/Infrastructure --startup-project src/backend/Infrastructure
+./scripts/dotnet.ps1 ef database update --project src/backend/Infrastructure --startup-project src/backend/Infrastructure
 ```
 
-The design-time factory reads the migration environment key first, then the runtime environment key as a development fallback. Explicitly supply the migration key for production. No automatic startup migration runs. Review generated SQL; committed migrations are immutable. No migration is needed for Phase 0's empty production model.
+The design-time factory reads the migration environment key first, then the runtime environment key as a development fallback. Explicitly supply the migration key for production. No automatic startup migration runs. Review generated SQL; committed migrations are immutable. The first migration is Phase2Catalog. The API project does not reference EF design tools, so Infrastructure is both the project and the startup project.
+
+## Catalogue image storage
+
+| Key | Purpose |
+| --- | --- |
+| Storage:LocalRoot | Folder for uploaded images. Default `.data/media` under the API content root (git-ignored). Keep it out of source control and back it up with the database. |
+| Storage:PublicPath | URL path the API serves images from. Default `/media`. |
+
+Images are re-encoded to WebP with random names, so they are served with long immutable caching. Azure Blob storage will replace local disk behind `IFileStorage` before release.
+
+## Loading the sample catalogue
+
+`tools/CatalogImport` loads the sample parts (`parts.json` and images) from the test-project folder. It reads ConnectionStrings:DefaultConnection from the API's user-secrets or the ConnectionStrings__DefaultConnection environment variable, and writes images into the API's storage folder.
+
+```powershell
+# Check every image first; writes nothing and needs no database.
+./scripts/dotnet.ps1 run --project tools/CatalogImport -- --source D:\GitLabRepos\test-project --dry-run
+# Import after the migration is applied. Safe to repeat; existing SKUs are skipped unless --update is given.
+./scripts/dotnet.ps1 run --project tools/CatalogImport -- --source D:\GitLabRepos\test-project
+```
 
 ## Frontends
 
