@@ -4,6 +4,9 @@ import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
 import { ApiStatus } from './components/ApiStatus';
+import { CategoriesPage } from './features/catalog/CategoriesPage';
+import { ItemsPage } from './features/catalog/ItemsPage';
+import { VehiclesPage } from './features/catalog/VehiclesPage';
 
 function ShopDetails() {
   return (
@@ -71,6 +74,9 @@ export function App() {
           <NavLink end to="/">
             Workspace
           </NavLink>
+          <NavLink to="/items">Items</NavLink>
+          <NavLink to="/categories">Categories</NavLink>
+          <NavLink to="/vehicles">Vehicles</NavLink>
           <NavLink to="/shop-details">Shop details</NavLink>
         </nav>
         <p className="sidebar-foot">New Zealand shop</p>
@@ -83,6 +89,9 @@ export function App() {
         <Box component="main" id="main" className="main-content" tabIndex={-1}>
           <Routes>
             <Route path="/" element={<Overview />} />
+            <Route path="/items" element={<ItemsPage />} />
+            <Route path="/categories" element={<CategoriesPage />} />
+            <Route path="/vehicles" element={<VehiclesPage />} />
             <Route path="/shop-details" element={<ShopDetails />} />
             <Route
               path="*"
