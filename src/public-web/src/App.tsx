@@ -1,27 +1,5 @@
 import { Link, NavLink, Route, Routes } from 'react-router-dom';
-function Home() {
-  return (
-    <section className="welcome">
-      <div className="welcome-copy">
-        <h1>Vehicle spare parts</h1>
-        <p className="lead">The right part keeps you moving.</p>
-        <p>
-          Our online shop is being prepared. Parts browsing and online orders
-          will be available when the shop opens.
-        </p>
-        <Link className="primary-link" to="/shop-details">
-          Shop details
-        </Link>
-      </div>
-      <div className="part-illustration" aria-hidden="true">
-        <div className="part-disc">
-          <div className="part-hub" />
-        </div>
-        <span>Spareparts</span>
-      </div>
-    </section>
-  );
-}
+import { Home } from './components/Home';
 function ShopDetails() {
   return (
     <section className="details">
@@ -48,12 +26,17 @@ export function App() {
       </a>
       <header className="site-header">
         <Link className="wordmark" to="/">
-          Spareparts<span>New Zealand</span>
+          <span className="wordmark-mark" aria-hidden="true" />
+          <span className="wordmark-text">
+            Spareparts<small>New Zealand</small>
+          </span>
         </Link>
         <nav aria-label="Main navigation">
           <NavLink end to="/">
             Home
           </NavLink>
+          <a href="/#categories">Parts</a>
+          <a href="/#contact">Contact</a>
           <NavLink to="/shop-details">Shop details</NavLink>
         </nav>
       </header>
