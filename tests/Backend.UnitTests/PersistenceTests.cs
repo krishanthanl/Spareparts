@@ -18,7 +18,7 @@ public sealed class PersistenceTests
         Assert.Contains("IsDeleted", db.Probes.ToQueryString());
         Assert.Contains("NOT", db.Probes.ToQueryString());
         var production = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql("Host=localhost;Database=test").Options).Model.GetEntityTypes().Select(x => x.ClrType.Name).Order().ToArray();
-        Assert.Equal(["Category", "Item", "ItemFitment", "ItemImage", "VehicleMake", "VehicleModel"], production);
+        Assert.Equal(["Category", "Item", "ItemFitment", "ItemImage", "Menu", "RefreshToken", "Role", "RolePermission", "SecurityEvent", "User", "UserPermissionOverride", "UserRole", "VehicleMake", "VehicleModel"], production);
     }
 
     [Fact]

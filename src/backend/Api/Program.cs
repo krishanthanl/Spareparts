@@ -5,6 +5,12 @@ using Api.Health;
 using Api.Identity;
 using Api.Observability;
 using Api.Validation;
+using System.Threading.RateLimiting;
+using Api.Controllers;
+using Application.Identity;
+using Infrastructure.Identity;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Application.Common;
 using FluentValidation;
 using Infrastructure;
@@ -48,10 +54,34 @@ builder.Services.AddDbContext<AppDbContext>((services, options) => options
 var storageSettings = builder.Configuration.GetSection("Storage").Get<StorageSettings>() ?? new StorageSettings();
 storageSettings.LocalRoot = Path.GetFullPath(storageSettings.LocalRoot, builder.Environment.ContentRootPath);
 builder.Services.AddCatalogInfrastructure(storageSettings);
-builder.Services.AddAuthentication(NoSignInYetHandler.SchemeName)
-    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, NoSignInYetHandler>(NoSignInYetHandler.SchemeName, null);
-builder.Services.AddAuthorizationBuilder()
-    .AddPolicy(Permissions.CatalogManage, policy => policy.RequireAuthenticatedUser().RequireClaim(Permissions.ClaimType, Permissions.CatalogManage));
+var allowEphemeralKey = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing");
+var ephemeralKey = JwtSettings.EphemeralKey();
+builder.Services.AddOptions<JwtSettings>().BindConfiguration("Jwt")
+    // Development without a configured key: sign-ins end whenever the API restarts.
+    .PostConfigure(x => { if (!JwtSettings.IsValidKey(x.SigningKey) && allowEphemeralKey) x.SigningKey = ephemeralKey; })
+    .Validate(x => JwtSettings.IsValidKey(x.SigningKey),
+        $"Configure Jwt:SigningKey (at least {JwtSettings.MinKeyBytes} bytes) using secrets or environment variables.")
+    .ValidateOnStart();
+builder.Services.AddSingleton(services => services.GetRequiredService<IOptions<JwtSettings>>().Value);
+builder.Services.AddSingleton<IAccessTokenIssuer, AccessTokenIssuer>();
+var sessionSettings = builder.Configuration.GetSection("Auth").Get<SessionSettings>() ?? new SessionSettings();
+builder.Services.AddIdentityInfrastructure(sessionSettings);
+if (!builder.Environment.IsEnvironment("Testing")) builder.Services.AddHostedService<IdentitySeedService>();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer();
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<JwtSettings>((options, settings) => JwtSetup.Configure(options, settings));
+builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
+builder.Services.AddAuthorizationBuilder().AddPermissionPolicies();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(AuthController.LoginRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.OnRejected = async (context, ct) =>
+        await Results.Problem(statusCode: 429, title: "Too many requests.", detail: "Too many attempts. Wait a minute and try again.").ExecuteAsync(context.HttpContext);
+});
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
 {
     context.ProblemDetails.Extensions["traceId"] = Activity.Current?.TraceId.ToString() ?? context.HttpContext.TraceIdentifier;
@@ -91,6 +121,7 @@ app.UseStaticFiles(new StaticFileOptions
 });
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });

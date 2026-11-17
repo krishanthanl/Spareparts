@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using Domain.Catalog;
 using Domain.Common;
+using Domain.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence;
@@ -13,6 +14,14 @@ public class AppDbContext(DbContextOptions options) : DbContext(options)
     public DbSet<ItemFitment> ItemFitments => Set<ItemFitment>();
     public DbSet<VehicleMake> VehicleMakes => Set<VehicleMake>();
     public DbSet<VehicleModel> VehicleModels => Set<VehicleModel>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<UserPermissionOverride> UserPermissionOverrides => Set<UserPermissionOverride>();
+    public DbSet<Menu> Menus => Set<Menu>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<SecurityEvent> SecurityEvents => Set<SecurityEvent>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
