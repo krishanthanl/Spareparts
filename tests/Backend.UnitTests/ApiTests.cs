@@ -101,7 +101,8 @@ public sealed class FoundationFactory(string? connection = null, string environm
         {
             ["ConnectionStrings:DefaultConnection"] = connection ?? "Host=127.0.0.1;Port=1;Database=unavailable;Username=test;Timeout=1;Pooling=false",
             ["Cors:Origins:0"] = "http://localhost:5173",
-            ["Cors:Origins:1"] = "http://localhost:5174"
+            ["Cors:Origins:1"] = "http://localhost:5174",
+            ["Jwt:SigningKey"] = "unit-test-signing-key-that-is-long-enough-0123456789"
         }));
         builder.ConfigureServices(services =>
         {

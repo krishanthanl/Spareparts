@@ -256,7 +256,7 @@ public sealed class CatalogApiTests
     [InlineData("GET", "/api/items")]
     [InlineData("DELETE", "/api/items/6c8f8f0e-4a3b-4c55-9d0f-0e1a2b3c4d5e")]
     [InlineData("POST", "/api/vehicle-makes")]
-    public async Task Catalog_management_fails_closed_until_sign_in_exists(string method, string url)
+    public async Task Catalog_management_requires_sign_in(string method, string url)
     {
         await using var factory = new FoundationFactory();
         var response = await factory.CreateClient().SendAsync(new HttpRequestMessage(new HttpMethod(method), url)
@@ -279,7 +279,7 @@ public sealed class CatalogApiTests
     [Fact]
     public async Task Signed_in_user_without_the_permission_is_forbidden()
     {
-        await using var factory = new SignedInFactory(permission: null);
+        await using var factory = new SignedInFactory(null);
         var response = await factory.CreateClient().GetAsync("/api/categories");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
@@ -308,36 +308,3 @@ public sealed class CatalogApiTests
     }
 }
 
-/// <summary>Test-only sign-in. Phase 1 supplies real authentication.</summary>
-public sealed class SignedInFactory(string? permission) : WebApplicationFactory<Program>
-{
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.UseEnvironment("Testing");
-        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["ConnectionStrings:DefaultConnection"] = "Host=127.0.0.1;Port=1;Database=unavailable;Username=test;Timeout=1;Pooling=false",
-            ["Cors:Origins:0"] = "http://localhost:5173",
-            ["Storage:LocalRoot"] = Path.Combine(Path.GetTempPath(), "sp-tests-media"),
-        }));
-        builder.ConfigureServices(services =>
-        {
-            services.AddSingleton(new TestPermission(permission));
-            services.AddAuthentication(TestAuthHandler.SchemeName).AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, null);
-        });
-    }
-}
-
-public sealed record TestPermission(string? Value);
-
-public sealed class TestAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder, TestPermission permission)
-    : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
-{
-    public const string SchemeName = "Test";
-    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
-    {
-        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, "test-user") };
-        if (permission.Value is not null) claims.Add(new Claim(Permissions.ClaimType, permission.Value));
-        return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(claims, SchemeName)), SchemeName)));
-    }
-}

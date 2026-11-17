@@ -17,7 +17,11 @@ internal static class Uploads
 public sealed class CategoriesController(ICategoryService categories) : ControllerBase
 {
     [HttpGet]
-    public Task<PagedResult<CategoryDto>> List([FromQuery] PageRequest request, CancellationToken ct) => categories.ListAsync(request, ct);
+    public async Task<PagedResult<CategoryDto>> List([FromQuery] PageRequest request, CancellationToken ct)
+    {
+        if (request.IncludeDeleted) await this.RequirePermissionAsync(Application.Identity.PermissionKeys.CatalogDeletedView);
+        return await categories.ListAsync(request, ct);
+    }
 
     [HttpGet("{id:guid}")]
     public Task<CategoryDto> Get(Guid id, CancellationToken ct) => categories.GetAsync(id, ct);
@@ -60,8 +64,11 @@ public sealed class CategoriesController(ICategoryService categories) : Controll
 public sealed class ItemsController(IItemService items) : ControllerBase
 {
     [HttpGet]
-    public Task<PagedResult<ItemSummaryDto>> List([FromQuery] PageRequest request, [FromQuery] ItemFilter filter, CancellationToken ct) =>
-        items.ListAsync(request, filter, ct);
+    public async Task<PagedResult<ItemSummaryDto>> List([FromQuery] PageRequest request, [FromQuery] ItemFilter filter, CancellationToken ct)
+    {
+        if (request.IncludeDeleted) await this.RequirePermissionAsync(Application.Identity.PermissionKeys.CatalogDeletedView);
+        return await items.ListAsync(request, filter, ct);
+    }
 
     [HttpGet("{id:guid}")]
     public Task<ItemDto> Get(Guid id, CancellationToken ct) => items.GetAsync(id, ct);

@@ -24,6 +24,18 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problems, ILog
         {
             detail = new ProblemDetails { Status = 409, Title = "The change conflicts with existing data.", Detail = conflict.Message };
         }
+        else if (exception is Application.Common.AuthenticationFailedException authFailed)
+        {
+            detail = new ProblemDetails { Status = 401, Title = "Not signed in.", Detail = authFailed.Message };
+        }
+        else if (exception is Application.Common.ForbiddenException forbidden)
+        {
+            detail = new ProblemDetails { Status = 403, Title = "Not allowed.", Detail = forbidden.Message };
+        }
+        else if (exception is Application.Common.RateLimitedException limited)
+        {
+            detail = new ProblemDetails { Status = 429, Title = "Too many requests.", Detail = limited.Message };
+        }
         else if (exception is BadHttpRequestException)
         {
             detail = new ProblemDetails { Status = 400, Title = "The request could not be read." };
