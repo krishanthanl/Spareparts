@@ -22,6 +22,107 @@ const fallbackCategories = [
 const scrollToParts = () =>
   document.getElementById('parts')?.scrollIntoView({ behavior: 'smooth' });
 
+/** Decorative side-on double-cab ute for the hero. Swap for a real photo when the shop has one. */
+function HeroUte() {
+  return (
+    <div className="hero-visual" aria-hidden="true">
+      <svg viewBox="0 0 680 300" role="presentation" focusable="false">
+        <defs>
+          <linearGradient id="ute-body" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#4a5058" />
+            <stop offset="0.55" stopColor="#2b2f35" />
+            <stop offset="1" stopColor="#1a1c20" />
+          </linearGradient>
+          <linearGradient id="ute-glass" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#5c6670" />
+            <stop offset="1" stopColor="#15181c" />
+          </linearGradient>
+          <linearGradient id="ute-beam" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#ffc400" stopOpacity="0.55" />
+            <stop offset="1" stopColor="#ffc400" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <ellipse
+          cx="330"
+          cy="278"
+          rx="310"
+          ry="10"
+          fill="#000"
+          opacity="0.55"
+        />
+        <path d="M604 156 L680 128 L680 214 L604 172 Z" fill="url(#ute-beam)" />
+        {/* Body */}
+        <path
+          d="M36 206 L36 150 L44 142 L262 142 L278 82 Q282 74 292 74 L400 72 Q418 72 428 82 L468 132 L580 144 Q600 148 604 164 L606 206 Q606 222 590 222 L556 222 A56 56 0 0 0 444 222 L206 222 A56 56 0 0 0 94 222 L52 222 Q36 222 36 206 Z"
+          fill="url(#ute-body)"
+          stroke="#5a616a"
+          strokeWidth="2"
+        />
+        {/* Windows */}
+        <path d="M288 86 L338 84 L338 128 L276 128 Z" fill="url(#ute-glass)" />
+        <path
+          d="M348 84 L402 82 Q412 82 418 90 L450 128 L348 128 Z"
+          fill="url(#ute-glass)"
+        />
+        {/* Panel lines, tray rail, shoulder highlight */}
+        <path
+          d="M343 132 V214 M458 136 V214 M262 146 V214 M44 152 H262"
+          stroke="#14161a"
+          strokeWidth="3"
+        />
+        <path
+          d="M60 170 H596"
+          stroke="#ffffff"
+          strokeOpacity="0.12"
+          strokeWidth="2"
+        />
+        <rect x="320" y="150" width="16" height="4" rx="2" fill="#8b929b" />
+        <rect x="434" y="152" width="16" height="4" rx="2" fill="#8b929b" />
+        <path d="M452 126 L470 124 L472 136 L456 138 Z" fill="#1a1c20" />
+        {/* Lights and bumper */}
+        <path d="M584 150 L603 158 L604 172 L584 168 Z" fill="#ffc400" />
+        <rect x="34" y="152" width="9" height="26" rx="2" fill="#d94a2b" />
+        <rect x="560" y="196" width="48" height="10" rx="3" fill="#14161a" />
+        <rect x="30" y="196" width="26" height="10" rx="3" fill="#14161a" />
+        {/* Wheels */}
+        {[150, 500].map((cx) => (
+          <g key={cx}>
+            <circle cx={cx} cy="226" r="48" fill="#0b0c0e" />
+            <circle
+              cx={cx}
+              cy="226"
+              r="30"
+              fill="#2b2f35"
+              stroke="#ffc400"
+              strokeWidth="5"
+            />
+            <circle
+              cx={cx}
+              cy="226"
+              r="9"
+              fill="#14161a"
+              stroke="#8b929b"
+              strokeWidth="2"
+            />
+            {[0, 72, 144, 216, 288].map((a) => (
+              <rect
+                key={a}
+                x={cx - 3}
+                y="200"
+                width="6"
+                height="15"
+                rx="2"
+                fill="#5a616a"
+                transform={`rotate(${a} ${cx} 226)`}
+              />
+            ))}
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 function PartSearch({ onSearch }: { onSearch: (q: string) => void }) {
   const [query, setQuery] = useState('');
   const onSubmit = (event: FormEvent) => {
@@ -83,6 +184,7 @@ export function Home() {
             </a>
           </div>
         </div>
+        <HeroUte />
         <ul className="hero-stats" aria-label="Why buy from us">
           <li>
             <strong>NZD</strong>
