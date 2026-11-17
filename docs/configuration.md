@@ -37,6 +37,8 @@ Use standard PostgreSQL TCP credentials converted to Npgsql key/value format. Pr
 
 A provider-supported pooled connection can serve runtime traffic after compatibility tests; direct connectivity is used for migrations and backups. Budget the sum of pools across API instances and background workers against current provider limits. Recheck role/trigger/locking/extension support against an isolated hosted database; never weaken stock invariants to work around hosting restrictions.
 
+For local development against a hosted database, run `./scripts/configure-hosted.ps1` in your own terminal. It asks for the direct `postgres://` URL without echoing it, converts it to Npgsql format with `SSL Mode=VerifyFull`, and saves it to the API's user-secrets as both DefaultConnection and MigrationConnection. A single hosted user then owns the schema and runs the app; separate the roles before release where the provider allows it. Do not point the integration tests at a shop database: they create and drop throwaway databases.
+
 Prisma Free quotas and backup features must be verified at deployment time. Independent encrypted pg_dump backups and restoration checks are required before release. No hosted database or Azure resources are provisioned here.
 
 ## EF tools and migrations
