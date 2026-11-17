@@ -54,7 +54,7 @@ it('explains that sign-in is needed when the API answers 401', async () => {
     </AppProviders>,
   );
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    'Sign-in is needed',
+    'Your session has ended',
   );
 });
 
