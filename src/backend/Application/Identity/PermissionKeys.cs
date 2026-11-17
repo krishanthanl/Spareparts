@@ -16,6 +16,8 @@ public static class PermissionKeys
     public const string InventoryGrn = "inventory.grn";
     public const string InventoryAdjust = "inventory.adjust";
     public const string InventoryReports = "inventory.reports";
+    public const string InventoryPrice = "inventory.price";
+    public const string InventoryReverse = "inventory.reverse";
     public const string SalesInvoice = "sales.invoice";
     public const string SalesReturn = "sales.return";
     public const string DeliveryConfigure = "delivery.configure";
@@ -36,6 +38,8 @@ public static class PermissionKeys
         new(InventoryGrn, "Inventory", "Receive stock (GRN)"),
         new(InventoryAdjust, "Inventory", "Adjust stock"),
         new(InventoryReports, "Inventory", "View stock reports"),
+        new(InventoryPrice, "Inventory", "Change selling prices"),
+        new(InventoryReverse, "Inventory", "Reverse posted goods received"),
         new(SalesInvoice, "Sales", "Create invoices"),
         new(SalesReturn, "Sales", "Process returns"),
         new(DeliveryConfigure, "Delivery", "Configure delivery options"),

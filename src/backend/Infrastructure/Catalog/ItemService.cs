@@ -31,9 +31,11 @@ public sealed class ItemService(AppDbContext db, IFileStorage storage, IImagePro
             {
                 x.Id, x.Sku, x.Name, x.CategoryId, CategoryName = x.Category!.Name, x.PartBrand, x.IsActive, x.IsDeleted, x.UpdatedAt,
                 Thumb = x.Images.Where(i => i.IsPrimary).Select(i => i.ThumbnailKey).FirstOrDefault(),
+                OnHand = db.StockMovements.Where(m => m.ItemId == x.Id).Sum(m => (decimal?)m.QtyChange) ?? 0,
+                Price = db.ItemPriceHistory.Where(p => p.ItemId == x.Id).OrderByDescending(p => p.Sequence).Select(p => (decimal?)p.SellingPrice).FirstOrDefault(),
             }).ToListAsync(ct);
         return new(rows.Select(x => new ItemSummaryDto(x.Id, x.Sku, x.Name, x.CategoryId, x.CategoryName, x.PartBrand,
-            x.Thumb is null ? null : storage.GetPublicUrl(x.Thumb), x.IsActive, x.IsDeleted, x.UpdatedAt)).ToList(),
+            x.Thumb is null ? null : storage.GetPublicUrl(x.Thumb), x.IsActive, x.IsDeleted, x.UpdatedAt, x.OnHand, x.Price)).ToList(),
             request.Page, request.PageSize, total);
     }
 

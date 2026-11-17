@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (unit + PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      # Docker is available on GitHub runners, so Testcontainers starts a throwaway PostgreSQL 17.
+      RUN_POSTGRES_TESTS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Restore
+        run: dotnet restore Spareparts.slnx --locked-mode
+      - name: Build
+        run: dotnet build Spareparts.slnx --no-restore -c Release
+      - name: Unit and API tests
+        run: dotnet test tests/Backend.UnitTests --no-build -c Release --logger "trx;LogFileName=unit.trx"
+      - name: PostgreSQL integration tests
+        run: dotnet test tests/Backend.IntegrationTests --no-build -c Release --logger "trx;LogFileName=postgres.trx"
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: tests/**/TestResults/*.trx
+          if-no-files-found: ignore
+
+  frontend:
+    name: Frontends (lint, types, tests, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

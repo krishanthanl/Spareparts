@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using Domain.Catalog;
 using Domain.Common;
 using Domain.Identity;
+using Domain.Inventory;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence;
@@ -22,6 +23,16 @@ public class AppDbContext(DbContextOptions options) : DbContext(options)
     public DbSet<Menu> Menus => Set<Menu>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<SecurityEvent> SecurityEvents => Set<SecurityEvent>();
+    public DbSet<PermissionSeed> PermissionSeeds => Set<PermissionSeed>();
+    public DbSet<Grn> Grns => Set<Grn>();
+    public DbSet<GrnLine> GrnLines => Set<GrnLine>();
+    public DbSet<StockDocument> StockDocuments => Set<StockDocument>();
+    public DbSet<StockDocumentLine> StockDocumentLines => Set<StockDocumentLine>();
+    public DbSet<Stocktake> Stocktakes => Set<Stocktake>();
+    public DbSet<StocktakeLine> StocktakeLines => Set<StocktakeLine>();
+    public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<ItemPriceHistory> ItemPriceHistory => Set<ItemPriceHistory>();
+    public DbSet<DocumentCounter> DocumentCounters => Set<DocumentCounter>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

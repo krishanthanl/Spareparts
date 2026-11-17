@@ -5,6 +5,8 @@ using Domain.Identity;
 using Infrastructure.Catalog;
 using Infrastructure.Identity;
 using Infrastructure.Imaging;
+using Infrastructure.Inventory;
+using Application.Inventory;
 using Infrastructure.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -21,6 +23,11 @@ public static class DependencyInjection
         services.AddScoped<IItemService, ItemService>();
         services.AddScoped<IVehicleService, VehicleService>();
         services.AddScoped<IPublicCatalogService, PublicCatalogService>();
+        services.AddScoped<IGrnService, GrnService>();
+        services.AddScoped<IStockDocumentService, StockDocumentService>();
+        services.AddScoped<IStocktakeService, StocktakeService>();
+        services.AddScoped<IStockQueryService, StockQueryService>();
+        services.AddScoped<IPriceService, PriceService>();
         return services;
     }
 
