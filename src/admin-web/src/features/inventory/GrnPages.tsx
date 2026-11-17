@@ -29,14 +29,16 @@ import {
   type Grn,
   type DocumentStatus,
 } from './api';
-import { ItemPicker, StatusChip } from './components';
+import { DocumentPagination, ItemPicker, StatusChip } from './components';
 
 export function GrnListPage() {
+  const [page, setPage] = useState(1);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<DocumentStatus | ''>('');
   const list = useQuery({
-    queryKey: ['grns', q, status],
-    queryFn: () => inventoryApi.grns({ q, status: status || undefined }),
+    queryKey: ['grns', q, status, page],
+    queryFn: () =>
+      inventoryApi.grns({ q, status: status || undefined, page, pageSize: 25 }),
   });
   return (
     <>
@@ -60,14 +62,20 @@ export function GrnListPage() {
           size="small"
           label="Search supplier or number"
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1);
+          }}
         />
         <TextField
           size="small"
           select
           label="Status"
           value={status}
-          onChange={(e) => setStatus(e.target.value as DocumentStatus | '')}
+          onChange={(e) => {
+            setStatus(e.target.value as DocumentStatus | '');
+            setPage(1);
+          }}
           slotProps={{ select: { native: true } }}
           sx={{ minWidth: 140 }}
         >
@@ -124,6 +132,11 @@ export function GrnListPage() {
           </TableBody>
         </Table>
       </TableContainer>
+      <DocumentPagination
+        page={page}
+        total={list.data?.totalCount ?? 0}
+        onPageChange={setPage}
+      />
     </>
   );
 }
