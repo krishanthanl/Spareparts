@@ -20,3 +20,4 @@ test-results/
 
 # Locally stored uploads (catalogue images)
 .data/
+Move-Apps-To-D.ps1
