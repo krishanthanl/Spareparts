@@ -88,7 +88,9 @@ builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = 
     context.ProblemDetails.Extensions["correlationId"] = context.HttpContext.Items["CorrelationId"];
 });
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-builder.Services.AddControllers(options => options.Filters.Add<FluentValidationFilter>());
+builder.Services.AddControllers(options => options.Filters.Add<FluentValidationFilter>())
+    // Enums travel as names ("Posted", "Grn"); numbers are still accepted on input.
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddValidatorsFromAssemblyContaining<ICurrentActor>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

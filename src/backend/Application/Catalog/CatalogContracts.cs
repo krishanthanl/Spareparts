@@ -19,7 +19,7 @@ public sealed record FitmentDto(Guid Id, Guid VehicleModelId, string Make, strin
 public sealed record FitmentInput(Guid VehicleModelId, short? YearFrom, short? YearTo);
 
 public sealed record ItemSummaryDto(Guid Id, string Sku, string Name, Guid CategoryId, string CategoryName, string? PartBrand,
-    string? ThumbnailUrl, bool IsActive, bool IsDeleted, DateTimeOffset UpdatedAt);
+    string? ThumbnailUrl, bool IsActive, bool IsDeleted, DateTimeOffset UpdatedAt, decimal OnHand = 0, decimal? SellingPrice = null);
 
 public sealed record ItemDto(Guid Id, string Sku, string Name, string? Description, Guid CategoryId, string CategoryName, string? PartBrand,
     int? ReorderLevel, int? ReorderQuantity, bool IsActive, bool IsDeleted, uint Version, DateTimeOffset UpdatedAt,

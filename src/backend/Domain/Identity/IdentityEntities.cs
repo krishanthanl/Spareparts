@@ -112,3 +112,9 @@ public sealed class SecurityEvent : AuditableEntity
     public string? Ip { get; set; }
     public string? Details { get; set; }
 }
+
+/// <summary>Permission keys already given to their default roles, so new keys reach existing roles once.</summary>
+public sealed class PermissionSeed : AuditableEntity
+{
+    public string PermissionKey { get; set; } = string.Empty;
+}

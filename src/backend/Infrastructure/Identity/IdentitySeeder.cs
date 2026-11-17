@@ -32,10 +32,13 @@ public sealed class IdentitySeeder(AppDbContext db, TimeProvider clock)
         new("catalog.items", "catalog", "Items", "/items", null, 10, P.CatalogManage),
         new("catalog.categories", "catalog", "Categories", "/categories", null, 20, P.CatalogManage),
         new("catalog.vehicles", "catalog", "Vehicles", "/vehicles", null, 30, P.CatalogManage),
-        new("inventory", null, "Inventory", null, "warehouse", 30, null, Enabled: false),
-        new("inventory.grn", "inventory", "Goods received", "/inventory/grn", null, 10, P.InventoryGrn, Enabled: false),
-        new("inventory.adjustments", "inventory", "Adjustments", "/inventory/adjustments", null, 20, P.InventoryAdjust, Enabled: false),
-        new("inventory.stock", "inventory", "Stock report", "/inventory/stock", null, 30, P.InventoryReports, Enabled: false),
+        new("inventory", null, "Inventory", null, "warehouse", 30, null),
+        new("inventory.grn", "inventory", "Goods received", "/inventory/grn", null, 10, P.InventoryGrn),
+        new("inventory.adjustments", "inventory", "Adjustments", "/inventory/adjustments", null, 20, P.InventoryAdjust),
+        new("inventory.opening", "inventory", "Opening stock", "/inventory/opening", null, 30, P.InventoryAdjust),
+        new("inventory.stocktakes", "inventory", "Stocktake", "/inventory/stocktakes", null, 40, P.InventoryAdjust),
+        new("inventory.stock", "inventory", "Stock report", "/inventory/stock", null, 50, P.InventoryReports),
+        new("inventory.low", "inventory", "Low stock", "/inventory/low-stock", null, 60, P.InventoryReports),
         new("sales", null, "Sales", null, "point_of_sale", 40, null, Enabled: false),
         new("sales.invoices", "sales", "Invoices", "/sales/invoices", null, 10, P.SalesInvoice, Enabled: false),
         new("sales.returns", "sales", "Returns", "/sales/returns", null, 20, P.SalesReturn, Enabled: false),
@@ -55,6 +58,21 @@ public sealed class IdentitySeeder(AppDbContext db, TimeProvider clock)
             var role = new Role { Name = seed.Name, NormalizedName = seed.Name.ToUpperInvariant(), Description = seed.Description, IsSystem = true };
             db.Roles.Add(role);
             foreach (var key in seed.Permissions) db.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionKey = key });
+        }
+
+        // Keys added in later phases reach existing system roles once. A key an admin later removes is not re-added.
+        var seeded = (await db.PermissionSeeds.Select(x => x.PermissionKey).ToListAsync(ct)).ToHashSet();
+        var newKeys = PermissionKeys.All.Select(x => x.Key).Where(k => !seeded.Contains(k)).ToList();
+        if (newKeys.Count > 0)
+        {
+            var roles = await db.Roles.Where(r => r.IsSystem).Include(r => r.Permissions).ToListAsync(ct);
+            foreach (var role in roles)
+            {
+                var defaults = RoleSeeds.SingleOrDefault(s => s.Name.ToUpperInvariant() == role.NormalizedName)?.Permissions ?? [];
+                foreach (var key in newKeys.Where(k => defaults.Contains(k) && role.Permissions.All(p => p.PermissionKey != k)))
+                    db.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionKey = key });
+            }
+            foreach (var key in newKeys) db.PermissionSeeds.Add(new PermissionSeed { PermissionKey = key });
         }
 
         var menus = await db.Menus.ToDictionaryAsync(x => x.Key, ct);
