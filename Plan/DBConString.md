@@ -21,6 +21,9 @@ Avoid logging credentials or placing them in screenshots/shared shell history. R
 Azure hosts the applications; Prisma Postgres hosts PostgreSQL on its Free plan initially. Keep EF Core/Npgsql and EF migrations; Prisma hosting does not require Prisma ORM.
 Use the provider's standard PostgreSQL TCP credentials with verified TLS; a prisma:// or prisma+postgres:// proxy URL is not an Npgsql connection string. Map credentials into Npgsql configuration without exposing them.
 Prefer a provider-supported pooled endpoint for runtime after compatibility testing; use direct PostgreSQL connectivity for migrations/backup. Budget total connections across all Azure instances/workers against current provider limits.
+
 Verify restricted-role and trigger permissions on the actual plan. Keep local Docker PostgreSQL for development/tests. Recheck limits and independent backups before release.
 Reference: https://www.prisma.io/docs/postgres/database/connecting-to-your-database
+
+
 

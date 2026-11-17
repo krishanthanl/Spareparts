@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "pwsh",
+      "runtimeArgs": ["-NoProfile", "-File", "./scripts/dotnet.ps1", "run", "--project", "src/backend/Api", "--launch-profile", "http"],
+      "port": 5080
+    },
+    {
+      "name": "admin-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:admin"],
+      "port": 5173
+    },
+    {
+      "name": "public-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:public"],
+      "port": 5174
+    }
+  ]
+}
