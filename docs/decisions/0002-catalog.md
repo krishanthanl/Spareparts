@@ -25,7 +25,7 @@ Status: accepted (approved proposal `Plan/Phase2-Design-Proposal.md`, 2026-11-16
 
 ## Open items
 
-- Phase 1 must issue the `permission: catalog.manage` claim to catalogue staff.
+- Done in Phase 1 (ADR 0003): `catalog.manage` is now a permission resolved server-side per user, not a token claim.
 - Migration and import verified on hosted Prisma Postgres (2026-11-17). Integration tests still need a disposable database; see `docs/testing.md`.
 - New child rows (images, fitments) must be added to their DbSet explicitly, because entity ids are set on construction.
 - Thumbnails for existing images if thumbnail size changes later would need a regeneration command.

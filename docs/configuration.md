@@ -18,6 +18,9 @@ Local roles:
 | Cors:Origins:0 and :1 | Exact frontend origins, no slash/path/wildcard |
 | AllowedHosts | Accepted API hostnames; configure actual Azure/custom domains at release |
 | ASPNETCORE_ENVIRONMENT | Development locally; Production in Azure |
+| Jwt:SigningKey | Access-token signing key, at least 32 bytes. Required outside Development; secrets/environment only (`Jwt__SigningKey`) |
+| Jwt:Issuer, Jwt:Audience, Jwt:AccessTokenMinutes | Defaults spareparts-api, spareparts-admin, 10 |
+| Auth:* | Session/lockout limits (RefreshTokenDays 14, SessionMaxDays 30, MaxFailedAttempts 5, LockoutMinutes 15); defaults match ADR 0003 |
 
 Environment keys use double underscores, for example ConnectionStrings__DefaultConnection and Cors__Origins__0.
 
@@ -50,7 +53,7 @@ Prisma Free quotas and backup features must be verified at deployment time. Inde
 ./scripts/dotnet.ps1 ef database update --project src/backend/Infrastructure --startup-project src/backend/Infrastructure
 ```
 
-The design-time factory reads the migration environment key first, then the runtime environment key as a development fallback. Explicitly supply the migration key for production. No automatic startup migration runs. Review generated SQL; committed migrations are immutable. The first migration is Phase2Catalog. The API project does not reference EF design tools, so Infrastructure is both the project and the startup project.
+The design-time factory reads the migration environment key first, then the runtime environment key as a development fallback. Explicitly supply the migration key for production. No automatic startup migration runs. Review generated SQL; committed migrations are immutable. Migrations so far: Phase2Catalog, Phase1Auth. The API project does not reference EF design tools, so Infrastructure is both the project and the startup project.
 
 ## Catalogue image storage
 
@@ -75,3 +78,13 @@ Images are re-encoded to WebP with random names, so they are served with long im
 ## Frontends
 
 Optional src/admin-web/.env.local and src/public-web/.env.local set VITE_API_BASE_URL (default http://localhost:5080). Every VITE_ value is public. No database, JWT signing, email or payment secrets belong there. Development ports are fixed to 5173/5174 so CORS configuration stays deterministic.
+
+## First SuperAdmin
+
+After applying migrations, create the first administrator once, in your own terminal:
+
+```powershell
+./scripts/dotnet.ps1 run --project tools/AdminBootstrap -- --email you@example.com --name "Your name"
+```
+
+It reads the same user-secrets connection as the API, asks for the password without echoing it (or reads `BOOTSTRAP_PASSWORD`), seeds roles and menus, and refuses to run if an active SuperAdmin already exists. Add other staff from the admin app (Users).
