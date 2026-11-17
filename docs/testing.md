@@ -45,6 +45,15 @@ No stock/GRN/invoice/return implementation exists yet. Their transaction, race, 
 - PostgreSQL: 7 integration tests compile and are skipped here (no Docker). They apply the real migrations to a new throwaway database and cover SKU reuse/restore conflicts, soft-delete filtering, category delete blocking, case-insensitive names, fitment year boundaries, check constraints and public visibility. **Not yet run against a real database.**
 - Import tool: dry run over the 100 sample images passed (all decode within limits). The real import has not been run (no database).
 - Frontend: admin 10 and public 8 Vitest tests passed; both builds, type checks, lint and format check passed. Browser smoke checks: 6 passed (desktop and mobile).
-- Not verified: admin screens against a signed-in API (sign-in is Phase 1); the public parts grid with real imported data.
+- Not verified: admin screens against a signed-in API (sign-in is Phase 1).
+
+## Hosted database run (2026-11-17, Prisma Postgres)
+
+- Migration `Phase2Catalog` applied to the hosted database over `SSL Mode=VerifyFull`.
+- First real import failed with `DbUpdateConcurrencyException` and rolled back cleanly. Cause: entity ids are set on construction, so EF treated a new `ItemImage` added only through `item.Images` as an existing row and sent an UPDATE. The same bug affected the admin API's image upload and fitment changes. Fixed by adding child rows explicitly; a unit test now covers it (78 backend tests pass).
+- Import: 6 categories and 100 items created with 200 image files (full + thumbnail). A second run skipped all 100.
+- Public API: 5 active categories, 95 items; Showcase (5 items) hidden as intended. Images served as `image/webp`. Admin API still returns 401.
+- Public site in the browser: categories and the parts grid load from the database with real photos; the category filter works.
+- The PostgreSQL integration tests were **not** run: they create and drop databases and must not point at the shop database. They still need a disposable server.
 
 Enable the PostgreSQL tests with RUN_POSTGRES_TESTS=1 (Docker) or TEST_POSTGRES_CONNECTION; the catalogue tests also need permission to create and drop a database.

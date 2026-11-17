@@ -112,13 +112,16 @@ public sealed class ItemService(AppDbContext db, IFileStorage storage, IImagePro
         if (item.Images.Count >= MaxImagesPerItem) throw Invalid("file", $"An item can have at most {MaxImagesPerItem} images.");
         if (altText?.Length > 200) throw Invalid("altText", "Alt text must be 200 characters or fewer.");
         var stored = await StoredImage.WriteAsync(storage, images, $"items/{item.Id:N}", content, ct);
-        item.Images.Add(new ItemImage
+        var image = new ItemImage
         {
-            StorageKey = stored.Key, ThumbnailKey = stored.ThumbnailKey, ContentType = ProcessedImage.ContentType,
+            ItemId = item.Id, StorageKey = stored.Key, ThumbnailKey = stored.ThumbnailKey, ContentType = ProcessedImage.ContentType,
             ByteSize = stored.Image.Full.Length, Width = stored.Image.Width, Height = stored.Image.Height,
             SortOrder = item.Images.Count == 0 ? 0 : item.Images.Max(x => x.SortOrder) + 1,
             IsPrimary = item.Images.Count == 0, AltText = string.IsNullOrWhiteSpace(altText) ? null : altText.Trim(),
-        });
+        };
+        // Ids are set in the entity, so a row reached only through a navigation looks existing to EF. Add it explicitly.
+        db.ItemImages.Add(image);
+        item.Images.Add(image);
         try
         {
             await SaveAsync(db, SkuTaken, ct);
@@ -186,7 +189,12 @@ public sealed class ItemService(AppDbContext db, IFileStorage storage, IImagePro
         }
         var have = item.Fitments.Select(x => (x.VehicleModelId, x.YearFrom, x.YearTo)).ToHashSet();
         foreach (var add in wanted.Where(x => !have.Contains(x)))
-            item.Fitments.Add(new ItemFitment { VehicleModelId = add.VehicleModelId, YearFrom = add.YearFrom, YearTo = add.YearTo });
+        {
+            // Added explicitly: see AddImageAsync.
+            var fitment = new ItemFitment { ItemId = item.Id, VehicleModelId = add.VehicleModelId, YearFrom = add.YearFrom, YearTo = add.YearTo };
+            db.ItemFitments.Add(fitment);
+            item.Fitments.Add(fitment);
+        }
     }
 
     private async Task<Item> LoadAsync(Guid id, bool includeDeleted, CancellationToken ct)
