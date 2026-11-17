@@ -34,6 +34,21 @@ jobs:
         run: dotnet test tests/Backend.UnitTests --no-build -c Release --logger "trx;LogFileName=unit.trx"
       - name: PostgreSQL integration tests
         run: dotnet test tests/Backend.IntegrationTests --no-build -c Release --logger "trx;LogFileName=postgres.trx"
+      - name: Report failing tests as annotations
+        if: failure()
+        shell: python
+        run: |
+          import glob, xml.etree.ElementTree as ET
+          ns = {'t': 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010'}
+          for path in glob.glob('tests/**/TestResults/*.trx', recursive=True):
+              for r in ET.parse(path).getroot().iterfind('.//t:UnitTestResult', ns):
+                  if r.get('outcome') != 'Failed':
+                      continue
+                  msg = r.find('.//t:Message', ns)
+                  stack = r.find('.//t:StackTrace', ns)
+                  text = ((msg.text or '') + ' | ' + (stack.text or '')[:600]) if msg is not None else 'failed'
+                  text = text.replace('%', '%25').replace('\r', '').replace('\n', '%0A')[:1800]
+                  print(f"::error title={r.get('testName')[:150]}::{text}")
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
