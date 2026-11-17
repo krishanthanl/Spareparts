@@ -7,7 +7,7 @@ Copy the root .env.example to ignored .env, replace placeholders, then run docke
 Local roles:
 - spareparts_admin: service bootstrap/admin only.
 - spareparts_migrator: schema owner and DDL; use for EF migrations, never the API.
-- spareparts_app: connection, schema usage and default table DML; cannot change schema. Phase 3 must revoke ledger mutation access and add database protection before stock posting exists.
+- spareparts_app: connection, schema usage and default table DML; cannot change schema. Phase 3 triggers reject ledger and price-history UPDATE/DELETE/TRUNCATE, including when the hosted runtime user owns the schema. Restricted-role deployment remains a Phase 7 check.
 
 ## Backend settings
 

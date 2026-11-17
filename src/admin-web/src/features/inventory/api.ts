@@ -230,7 +230,12 @@ const clean = (params: Record<string, unknown>) =>
     ),
   );
 
-type ListParams = { page?: number; q?: string; status?: DocumentStatus };
+type ListParams = {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  status?: DocumentStatus;
+};
 const base = (kind: DocumentKind) =>
   kind === 'Opening' ? '/api/opening-stock' : '/api/stock-adjustments';
 

@@ -25,7 +25,7 @@ Enable the PostgreSQL test with RUN_POSTGRES_TESTS=1 and Docker, or TEST_POSTGRE
 
 ## Environment limitations
 
-Docker/psql are not available in the current task environment. Real PostgreSQL and Compose startup cannot be claimed verified until run in a suitable environment. Default test output reports the database test as skipped. Hosted Prisma compatibility, restricted-role SQL and healthy database readiness/recovery remain explicit release checks.
+Docker is not installed. Phase 3 was verified using portable PostgreSQL 17 with an explicitly disposable local server (see the completion results below). Without opt-in configuration, database tests remain skipped. Hosted Prisma compatibility, Compose startup, restricted-role SQL and healthy database readiness/recovery remain explicit release checks.
 
 The restricted execution environment cannot connect the .NET test runner to its local test host; local-network-enabled execution is required there. This does not require production access and does not change application behavior.
 
@@ -33,7 +33,7 @@ Browser tests use the installed Chrome channel by default; PLAYWRIGHT_CHANNEL ca
 
 ## Later-phase tests
 
-No stock/GRN/invoice/return implementation exists yet. Their transaction, race, idempotency, non-GST and no-backdating tests belong to the approved business phases and must use real PostgreSQL for database guarantees.
+Stock and GRN implementation and PostgreSQL tests exist in Phase 3. Invoice/return/reservation behavior belongs to the later approved phases and must also use real PostgreSQL for database guarantees.
 
 ## Recorded Phase 0 results (2026-11-15)
 
@@ -74,3 +74,13 @@ Enable the PostgreSQL tests with RUN_POSTGRES_TESTS=1 (Docker) or TEST_POSTGRES_
 - Admin web: 23 Vitest tests passed (6 new): posted GRN read-only with fractional quantity and Reverse only with `inventory.reverse`, Post disabled without lines, stock report date parameter, stock card links and balances, stocktake differences and moved-stock warning, NZ number formatting. Type check, lint and format passed.
 - CI runs on every push: `.github/workflows/ci.yml`. Failing tests are published as annotations on the run page.
 - Not verified: the Phase3Inventory migration on the hosted Prisma database (not applied yet), and the screens against a running API with real data.
+
+## Phase 3 completion verification (2026-11-17)
+
+- Backend: **151 unit/API tests passed** and **32 real PostgreSQL integration tests passed**, with **zero skipped**. This includes all earlier foundation, authentication and catalogue tests. A portable PostgreSQL 17 server ran on loopback using disposable test databases; no shop database was contacted.
+- New regressions prove receipt selling-price snapshots survive later repricing, posted lines cannot move into a draft, stock cards include all 2,001 movements, timestamp-bearing post bodies and price inputs return 400, and null line collections return field errors. The snapshot, reassignment, truncation and timestamp tests failed before their fixes and passed afterward.
+- Frontend: **29 admin tests and 8 public tests passed**. Added coverage for all four document-list paging controls, independent page state when switching document types, and category selection on the stock report.
+- Both frontend type checks, lint, formatting and production builds passed. Vite retains its existing warning about the admin JavaScript chunk exceeding 500 KB; build output is successful.
+- Browser: **6 desktop/mobile smoke checks passed**. These check public navigation, admin sign-in rendering and safe API/health responses; they do not prove signed-in inventory workflows against the hosted database.
+- EF reports no pending model changes. Both inventory migrations were applied by the integration suite. The original `Phase3Inventory` migration is unchanged; `Phase3InventoryProtection` closes the posted-line reassignment and edit/post race loopholes.
+- Run and migration instructions: [Phase 3 inventory](phase3-inventory.md). Hosted Prisma trigger compatibility, applying the migrations there, and a signed-in inventory acceptance run remain deployment checks.
