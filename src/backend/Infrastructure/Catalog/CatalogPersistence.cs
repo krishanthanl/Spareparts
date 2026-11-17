@@ -19,10 +19,13 @@ internal static class CatalogPersistence
         }
         catch (DbUpdateConcurrencyException)
         {
+            // Forget the rejected changes so a later save on this context does not retry them.
+            db.ChangeTracker.Clear();
             throw new ConflictException("This record was changed by someone else. Reload it and try again.");
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
+            db.ChangeTracker.Clear();
             throw new ConflictException(conflictMessage);
         }
     }

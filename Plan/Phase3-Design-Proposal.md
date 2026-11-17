@@ -1,6 +1,6 @@
 # Phase 3 Inventory — Design Proposal
 
-Status: **draft, awaiting approval.** Nothing is built until you approve or amend the decisions below.
+Status: **approved 2026-11-17**, with changes: quantities have 3 decimals (D1), average cost is rounded to 2 decimals (D3 declined), price changes and reversals Admin only, database tests on GitHub Actions. Recorded in `docs/decisions/0004-inventory.md`.
 
 Spec: `Plan/Masterprompt.md`, `Plan/Phase3-Inventory core most critical.md` (including the 2026-11-17 review section).
 Builds on: Phase 2 catalogue (`items`), Phase 1 permissions (`inventory.*` keys and the disabled Inventory menus).

@@ -12,6 +12,9 @@ export function useConfirm() {
     title: string;
     text: ReactNode;
     action: () => void;
+    /** Button text; defaults to Delete. */
+    confirmLabel?: string;
+    destructive?: boolean;
   } | null>(null);
   const dialog = (
     <Dialog open={pending !== null} onClose={() => setPending(null)}>
@@ -22,14 +25,14 @@ export function useConfirm() {
       <DialogActions>
         <Button onClick={() => setPending(null)}>Cancel</Button>
         <Button
-          color="error"
+          color={pending?.destructive === false ? 'primary' : 'error'}
           variant="contained"
           onClick={() => {
             pending?.action();
             setPending(null);
           }}
         >
-          Delete
+          {pending?.confirmLabel ?? 'Delete'}
         </Button>
       </DialogActions>
     </Dialog>

@@ -21,3 +21,8 @@ export function useAuth() {
   if (!value) throw new Error('useAuth must be used inside AuthProvider');
   return value;
 }
+
+/** Permission check for components that may also render without a session (e.g. in tests). */
+export function useCan() {
+  return useContext(AuthContext)?.can ?? (() => false);
+}

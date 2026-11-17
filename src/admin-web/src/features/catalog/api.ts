@@ -41,6 +41,8 @@ export type ItemSummary = {
   isActive: boolean;
   isDeleted: boolean;
   updatedAt: string;
+  onHand: number;
+  sellingPrice: number | null;
 };
 
 export type Fitment = {
