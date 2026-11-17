@@ -128,6 +128,46 @@ public sealed class InventoryModelTests
 public sealed class InventoryApiTests
 {
     [Theory]
+    [InlineData("/api/grns/6c8f8f0e-4a3b-4c55-9d0f-0e1a2b3c4d5e/post", P.InventoryGrn)]
+    [InlineData("/api/stock-adjustments/6c8f8f0e-4a3b-4c55-9d0f-0e1a2b3c4d5e/post", P.InventoryAdjust)]
+    [InlineData("/api/stocktakes/6c8f8f0e-4a3b-4c55-9d0f-0e1a2b3c4d5e/post", P.InventoryAdjust)]
+    public async Task Posting_actions_reject_client_timestamps(string path, string permission)
+    {
+        await using var factory = new AuthFactory();
+        var response = await factory.ClientWith(factory.TokenFor(permission)).PostAsJsonAsync(path, new { postedAt = "2020-01-01T00:00:00Z" });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/api/grns", P.InventoryGrn)]
+    [InlineData("/api/stock-adjustments", P.InventoryAdjust)]
+    [InlineData("/api/stocktakes", P.InventoryAdjust)]
+    public async Task Null_lines_return_field_errors(string path, string permission)
+    {
+        await using var factory = new AuthFactory();
+        var input = new Dictionary<string, object?> { ["lines"] = null };
+        if (path == "/api/grns") input["supplierName"] = "Repco";
+        if (path == "/api/stock-adjustments") input["reason"] = "Damage";
+        var response = await factory.ClientWith(factory.TokenFor(permission)).PostAsJsonAsync(path, input);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("2020-01-01T00:00:00Z")]
+    [InlineData("2099-01-01T00:00:00Z")]
+    public async Task Client_effective_times_are_rejected(string effectiveFrom)
+    {
+        await using var factory = new AuthFactory();
+        var response = await factory.ClientWith(factory.TokenFor(P.InventoryReports, P.InventoryPrice))
+            .PostAsJsonAsync("/api/items/6c8f8f0e-4a3b-4c55-9d0f-0e1a2b3c4d5e/price", new
+            {
+                sellingPrice = 25m, reason = "Reprice", effectiveFrom,
+            });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("effectiveFrom", await response.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
     [InlineData("GET", "/api/grns", "inventory.adjust")]
     [InlineData("GET", "/api/stock", "inventory.grn")]
     [InlineData("GET", "/api/stock-adjustments", "inventory.grn")]

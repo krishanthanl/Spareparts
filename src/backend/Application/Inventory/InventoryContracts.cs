@@ -1,10 +1,13 @@
 using Application.Catalog;
 using Domain.Inventory;
+using System.Text.Json.Serialization;
 
 namespace Application.Inventory;
 
 // ---- Goods received ----
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record GrnLineInput(Guid ItemId, decimal Quantity, decimal UnitCost, decimal? SellingPrice);
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record GrnInput(string SupplierName, string? SupplierReference, DateOnly? SupplierDocumentDate, string? Notes,
     IReadOnlyList<GrnLineInput> Lines, uint? Version);
 public sealed record GrnLineDto(Guid Id, int LineNo, Guid ItemId, string Sku, string ItemName, decimal Quantity, decimal UnitCost,
@@ -15,10 +18,13 @@ public sealed record GrnDto(Guid Id, string? GrnNumber, string SupplierName, str
 public sealed record GrnSummaryDto(Guid Id, string? GrnNumber, string SupplierName, string? SupplierReference, DocumentStatus Status,
     int LineCount, decimal Units, decimal Total, DateTimeOffset? PostedAt, DateTimeOffset UpdatedAt);
 public sealed record DocumentListRequest(int Page = 1, int PageSize = 25, string? Q = null, DocumentStatus? Status = null, string? Sort = null);
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record ReverseInput(string Reason);
 
 // ---- Adjustments and opening stock ----
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record StockDocumentLineInput(Guid ItemId, decimal QtyChange, decimal? UnitCost, decimal? SellingPrice);
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record StockDocumentInput(AdjustmentReason Reason, string? Notes, IReadOnlyList<StockDocumentLineInput> Lines, uint? Version);
 public sealed record StockDocumentLineDto(Guid Id, int LineNo, Guid ItemId, string Sku, string ItemName, decimal QtyChange, decimal? UnitCost, decimal? SellingPrice);
 public sealed record StockDocumentDto(Guid Id, StockDocumentKind Kind, string? Number, AdjustmentReason Reason, string? Notes, DocumentStatus Status,
@@ -30,7 +36,9 @@ public sealed record OpeningImportRow(int Line, string Sku, decimal? Quantity, d
 public sealed record OpeningImportResult(bool DryRun, int Valid, int Invalid, IReadOnlyList<OpeningImportRow> Rows, Guid? DraftId);
 
 // ---- Stocktake ----
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record StocktakeLineInput(Guid ItemId, decimal CountedQty);
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record StocktakeInput(string? Notes, IReadOnlyList<StocktakeLineInput> Lines, uint? Version);
 public sealed record StocktakeLineDto(Guid Id, Guid ItemId, string Sku, string ItemName, decimal CountedQty, decimal OnHandNow, decimal? SystemQtyAtPost,
     decimal Difference, bool MovedSinceStart);
@@ -50,6 +58,7 @@ public sealed record StockCard(Guid ItemId, string Sku, string Name, decimal Ope
     IReadOnlyList<StockCardRow> Movements);
 
 // ---- Prices ----
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record PriceChangeInput(decimal SellingPrice, string Reason);
 public sealed record PriceHistoryRow(long Sequence, DateTimeOffset EffectiveFrom, decimal SellingPrice, decimal? CostPrice, PriceSource SourceType,
     Guid? SourceId, string? Reason, string CreatedBy);
