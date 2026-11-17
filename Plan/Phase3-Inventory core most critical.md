@@ -63,3 +63,30 @@ Read Masterprompt.md first. Before coding, submit files, DB changes, endpoints, 
 - Price EffectiveFrom is server posting time; source dates never retrospectively change prices.
 - Test backdating attempts, future-effective attempts, insufficient stock, receipt reversal with reservations, concurrent deductions, and NZ daylight-saving/calendar boundaries. Historical queries before first posting return zero.
 
+
+## Review 2026-11-17: gaps found after Phases 0-2
+
+### Prerequisite before any coding
+- A disposable PostgreSQL for tests is mandatory this phase. Ledger immutability, concurrent deductions and posting races can only be proven on real PostgreSQL. Docker is not installed on the dev machine: install Docker Desktop, or provide a separate throwaway server via `TEST_POSTGRES_CONNECTION`. Never point tests at the shop database. Run the 25 currently skipped Phase 0-2 PostgreSQL tests first and fix anything they find.
+
+### Selling prices (missing from the plan)
+- Items have no price today, and the only planned price source is a GRN line. The shop must also be able to set or change a selling price **without** receiving stock. Add a price-change action that writes `ItemPriceHistory` with `SourceType = PriceChange`, server posting time, reason and actor; no backdating, no future-dated prices.
+- Define the "current selling price" query (latest history row by posting time, deterministic tie-break) and use it everywhere later (Phase 4 invoices, Phase 5 storefront).
+- Items with no price yet: admin lists show "No price"; Phase 5 shows "Ask for price" and the item cannot be added to a cart.
+- Permission: price changes get their own key (proposal: `inventory.price`) so a StoreKeeper can receive stock without being able to reprice. New keys are added to `PermissionKeys` and the seeded roles in this phase.
+
+### Opening stock for the existing catalogue
+- 100 items already exist with no stock. Provide an Opening Stock entry (screen, plus CSV import with a dry run like `tools/CatalogImport`) that posts `MovementType = Opening` at the current server time with unit cost and selling price. Allowed once per item; later corrections are adjustments.
+
+### Stocktake (count) workflow
+- Add a simple count sheet: choose items (or a category), enter counted quantities, the system shows the difference from the ledger when the count is posted, and posting creates one adjustment with reason `Count`. Staff never calculate differences by hand.
+
+### Decisions to make now (recommendations)
+- Quantity precision: whole units (`integer`). Parts are sold by the piece; fractional stock (e.g. fluids by the litre) is out of scope unless the owner says otherwise.
+- Valuation: weighted average cost, recalculated at each receipt and stored on each issue movement so historical margins never change. FIFO layers are more work and rarely needed by a single small shop.
+- Hosted database: Prisma Postgres currently uses one database user that owns the schema, so `REVOKE UPDATE/DELETE` on the ledger does not protect it. Use a `BEFORE UPDATE OR DELETE` trigger that raises an error, plus the application rule, and test that the trigger exists after migration. Separate runtime and migration roles in Phase 7 where the provider allows it.
+
+### Wiring into what Phase 1 built
+- Enable the seeded Inventory menus (`inventory.grn`, `inventory.adjustments`, `inventory.stock`) by switching `Enabled` on in `IdentitySeeder`; add menus for price changes and stocktake.
+- Use the existing permission keys `inventory.grn`, `inventory.adjust`, `inventory.reports`. Audit actors are now real user ids.
+- The item stock card links from the existing Items screen; the Items list gains read-only on-hand and current-price columns.
