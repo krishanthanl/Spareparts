@@ -16,7 +16,6 @@ After Api exists, initialize its user-secrets and set the connection key locally
 
 Avoid logging credentials or placing them in screenshots/shared shell history. Rotate credentials previously committed; deletion does not erase Git history. Verify readiness, safe authentication failures and absence of secrets in source/build artifacts. Add exact commands to the Phase 0 README once configuration is approved.
 
-
 ## Confirmed hosting arrangement
 Azure hosts the applications; Prisma Postgres hosts PostgreSQL on its Free plan initially. Keep EF Core/Npgsql and EF migrations; Prisma hosting does not require Prisma ORM.
 Use the provider's standard PostgreSQL TCP credentials with verified TLS; a prisma:// or prisma+postgres:// proxy URL is not an Npgsql connection string. Map credentials into Npgsql configuration without exposing them.
