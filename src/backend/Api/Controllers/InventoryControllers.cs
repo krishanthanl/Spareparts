@@ -1,6 +1,7 @@
 using Application.Catalog;
 using Application.Identity;
 using Application.Inventory;
+using Api.Validation;
 using Domain.Inventory;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -29,9 +30,11 @@ public sealed class GrnsController(IGrnService grns) : ControllerBase
     public Task<GrnDto> Update(Guid id, GrnInput input, CancellationToken ct) => grns.UpdateAsync(id, input, ct);
 
     [HttpPost("{id:guid}/post")]
+    [NoRequestBody]
     public Task<GrnDto> Post(Guid id, CancellationToken ct) => grns.PostAsync(id, ct);
 
     [HttpPost("{id:guid}/cancel")]
+    [NoRequestBody]
     public Task<GrnDto> Cancel(Guid id, CancellationToken ct) => grns.CancelAsync(id, ct);
 
     [HttpPost("{id:guid}/reverse")]
@@ -61,9 +64,11 @@ public abstract class StockDocumentsControllerBase(IStockDocumentService documen
     public Task<StockDocumentDto> Update(Guid id, StockDocumentInput input, CancellationToken ct) => documents.UpdateAsync(kind, id, input, ct);
 
     [HttpPost("{id:guid}/post")]
+    [NoRequestBody]
     public Task<StockDocumentDto> Post(Guid id, CancellationToken ct) => documents.PostAsync(kind, id, ct);
 
     [HttpPost("{id:guid}/cancel")]
+    [NoRequestBody]
     public Task<StockDocumentDto> Cancel(Guid id, CancellationToken ct) => documents.CancelAsync(kind, id, ct);
 }
 
@@ -108,9 +113,11 @@ public sealed class StocktakesController(IStocktakeService stocktakes) : Control
     public Task<StocktakeDto> Update(Guid id, StocktakeInput input, CancellationToken ct) => stocktakes.UpdateAsync(id, input, ct);
 
     [HttpPost("{id:guid}/post")]
+    [NoRequestBody]
     public Task<StocktakeDto> Post(Guid id, CancellationToken ct) => stocktakes.PostAsync(id, ct);
 
     [HttpPost("{id:guid}/cancel")]
+    [NoRequestBody]
     public Task<StocktakeDto> Cancel(Guid id, CancellationToken ct) => stocktakes.CancelAsync(id, ct);
 }
 

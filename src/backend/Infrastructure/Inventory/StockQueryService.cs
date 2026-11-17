@@ -55,7 +55,7 @@ public sealed class StockQueryService(AppDbContext db, ShopTime shopTime, TimePr
         var all = db.StockMovements.AsNoTracking().Where(m => m.ItemId == itemId);
         var opening = start is null ? 0 : await all.Where(m => m.OccurredAt < start).SumAsync(m => (decimal?)m.QtyChange, ct) ?? 0;
         var movements = await all.Where(m => (start == null || m.OccurredAt >= start) && (end == null || m.OccurredAt < end))
-            .OrderBy(m => m.Sequence).Take(2000).ToListAsync(ct);
+            .OrderBy(m => m.Sequence).ToListAsync(ct);
         var grnIds = movements.Where(m => m.RefType == "Grn").Select(m => m.RefId).Distinct().ToList();
         var docIds = movements.Where(m => m.RefType == "StockDocument").Select(m => m.RefId).Distinct().ToList();
         var numbers = (await db.Grns.Where(x => grnIds.Contains(x.Id)).Select(x => new { x.Id, Number = x.GrnNumber }).ToListAsync(ct))
