@@ -65,3 +65,12 @@ Enable the PostgreSQL tests with RUN_POSTGRES_TESTS=1 (Docker) or TEST_POSTGRES_
 - Admin web: 17 Vitest tests passed (session restore on reload, token only in memory, sidebar from allowed menus, blocked pages, sign-in errors, forced password change, refresh-and-retry on 401, one shared refresh for simultaneous 401s). Type check, lint, format and production build passed.
 - Browser: 6 Playwright checks passed on desktop and mobile; the admin app opens on sign-in with nothing in browser storage.
 - Not verified: a real sign-in end to end (the Phase1Auth migration is not applied to the hosted database yet and no SuperAdmin exists).
+
+## Recorded Phase 3 results (2026-11-17)
+
+- **First real PostgreSQL run (GitHub Actions, PostgreSQL 17 via Testcontainers):** all 12 inventory tests and all 9 Phase 1 auth tests passed. One Phase 2 catalogue test failed (a rejected duplicate SKU stayed pending on a reused context); fixed in the shared save helper, see ADR 0004.
+- Inventory database tests cover: stock at instants and zero before the first posting; UPDATE/DELETE of ledger and price rows rejected; a backdated insert re-stamped with the database time; the database alone rejecting negative stock; rollback of a whole posting when one line fails; five simultaneous posts of one GRN posting once; six simultaneous deductions never going below zero; reversal refused after stock was used; weighted average with a fractional receipt; price history; opening stock once per item; stocktake differences; gapless numbers under concurrency; posted lines locked; low stock at the reorder level.
+- Backend unit/API: 143 passed (30 new): validators (3-decimal quantities, cents, reasons, kinds), NZ end-of-day boundaries across both 2026 daylight-saving changes, column precision, triggers present in the migration, a separate permission for each inventory area, StoreKeeper defaults without price/reverse, enum names on the API.
+- Admin web: 23 Vitest tests passed (6 new): posted GRN read-only with fractional quantity and Reverse only with `inventory.reverse`, Post disabled without lines, stock report date parameter, stock card links and balances, stocktake differences and moved-stock warning, NZ number formatting. Type check, lint and format passed.
+- CI runs on every push: `.github/workflows/ci.yml`. Failing tests are published as annotations on the run page.
+- Not verified: the Phase3Inventory migration on the hosted Prisma database (not applied yet), and the screens against a running API with real data.

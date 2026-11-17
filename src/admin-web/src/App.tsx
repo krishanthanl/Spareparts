@@ -19,6 +19,20 @@ import type { MenuNode } from './features/auth/session';
 import { RolesPage } from './features/users/RolesPage';
 import { UserPermissionsPage } from './features/users/UserPermissionsPage';
 import { UsersPage } from './features/users/UsersPage';
+import { GrnEditPage, GrnListPage } from './features/inventory/GrnPages';
+import {
+  StockDocumentEditPage,
+  StockDocumentListPage,
+} from './features/inventory/StockDocumentPages';
+import {
+  StocktakeEditPage,
+  StocktakeListPage,
+} from './features/inventory/StocktakePages';
+import {
+  LowStockPage,
+  StockCardPage,
+  StockReportPage,
+} from './features/inventory/StockPages';
 
 function ShopDetails() {
   return (
@@ -207,6 +221,94 @@ function Workspace() {
               element={
                 <RequirePermission permission="roles.manage">
                   <RolesPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/inventory/grn"
+              element={
+                <RequirePermission permission="inventory.grn">
+                  <GrnListPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/inventory/grn/:id"
+              element={
+                <RequirePermission permission="inventory.grn">
+                  <GrnEditPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/inventory/adjustments"
+              element={
+                <RequirePermission permission="inventory.adjust">
+                  <StockDocumentListPage kind="Adjustment" />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/inventory/adjustments/:id"
+              element={
+                <RequirePermission permission="inventory.adjust">
+                  <StockDocumentEditPage kind="Adjustment" />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/inventory/opening"
+              element={
+                <RequirePermission permission="inventory.adjust">
+                  <StockDocumentListPage kind="Opening" />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/inventory/opening/:id"
+              element={
+                <RequirePermission permission="inventory.adjust">
+                  <StockDocumentEditPage kind="Opening" />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/inventory/stocktakes"
+              element={
+                <RequirePermission permission="inventory.adjust">
+                  <StocktakeListPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/inventory/stocktakes/:id"
+              element={
+                <RequirePermission permission="inventory.adjust">
+                  <StocktakeEditPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/inventory/stock"
+              element={
+                <RequirePermission permission="inventory.reports">
+                  <StockReportPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/inventory/low-stock"
+              element={
+                <RequirePermission permission="inventory.reports">
+                  <LowStockPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/inventory/items/:id"
+              element={
+                <RequirePermission permission="inventory.reports">
+                  <StockCardPage />
                 </RequirePermission>
               }
             />

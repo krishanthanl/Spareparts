@@ -17,12 +17,17 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { catalogApi, describeError, mediaUrl, type ApiProblem } from './api';
 import { ItemEditor } from './ItemEditor';
+import { Link } from 'react-router-dom';
+import { useCan } from '../auth/useAuth';
+import { formatMoney } from '../../lib/shop';
+import { formatQty } from '../inventory/api';
 import { ProblemAlert } from './ProblemAlert';
 import { useConfirm } from './useConfirm';
 
 const PAGE_SIZE = 25;
 
 export function ItemsPage() {
+  const can = useCan();
   const queryClient = useQueryClient();
   const [q, setQ] = useState('');
   const [categoryId, setCategoryId] = useState('');
@@ -141,6 +146,8 @@ export function ItemsPage() {
                   <TableCell>SKU</TableCell>
                   <TableCell>Name</TableCell>
                   <TableCell>Category</TableCell>
+                  <TableCell align="right">On hand</TableCell>
+                  <TableCell align="right">Price</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
@@ -175,6 +182,22 @@ export function ItemsPage() {
                       )}
                     </TableCell>
                     <TableCell>{item.categoryName}</TableCell>
+                    <TableCell align="right">
+                      {can('inventory.reports') ? (
+                        <Link to={`/inventory/items/${item.id}`}>
+                          {formatQty(item.onHand)}
+                        </Link>
+                      ) : (
+                        formatQty(item.onHand)
+                      )}
+                    </TableCell>
+                    <TableCell align="right">
+                      {item.sellingPrice === null ? (
+                        <span className="muted">No price</span>
+                      ) : (
+                        formatMoney(item.sellingPrice)
+                      )}
+                    </TableCell>
                     <TableCell>
                       {item.isDeleted ? (
                         <Chip size="small" label="Deleted" />
