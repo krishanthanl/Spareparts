@@ -187,10 +187,26 @@ button.btn {
   width: min(54vw, 760px);
   pointer-events: none;
 }
-.hero-visual svg {
+.hero-visual svg,
+.hero-visual img {
   display: block;
   width: 100%;
   height: auto;
+}
+.hero-photo {
+  width: min(60vw, 900px);
+  top: clamp(130px, 13vw, 200px);
+}
+/* Fade the photo's edges into the dark hero so it has no hard border. */
+.hero-photo img {
+  -webkit-mask-image:
+    linear-gradient(to right, transparent, #000 24%, #000 88%, transparent),
+    linear-gradient(to bottom, transparent, #000 22%, #000 74%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent, #000 24%, #000 88%, transparent),
+    linear-gradient(to bottom, transparent, #000 22%, #000 74%, transparent);
+  mask-composite: intersect;
 }
 .hero-copy {
   position: relative;

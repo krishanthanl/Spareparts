@@ -22,7 +22,31 @@ const fallbackCategories = [
 const scrollToParts = () =>
   document.getElementById('parts')?.scrollIntoView({ behavior: 'smooth' });
 
-/** Decorative side-on double-cab ute for the hero. Swap for a real photo when the shop has one. */
+/**
+ * Hero photo (Unsplash License, credit in IMAGE-CREDITS.md). Decorative, so it has empty alt text.
+ * Falls back to the drawn ute if the image can't load.
+ */
+function HeroVisual() {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <HeroUte />;
+  return (
+    <div className="hero-visual hero-photo">
+      <img
+        src="/hero/hero-pickup-1600.webp"
+        srcSet="/hero/hero-pickup-800.webp 800w, /hero/hero-pickup-1600.webp 1600w"
+        sizes="(max-width: 700px) 100vw, 58vw"
+        width={1600}
+        height={602}
+        alt=""
+        fetchPriority="high"
+        decoding="async"
+        onError={() => setFailed(true)}
+      />
+    </div>
+  );
+}
+
+/** Drawn side-on double-cab ute, used if the hero photo fails to load. */
 function HeroUte() {
   return (
     <div className="hero-visual" aria-hidden="true">
@@ -184,7 +208,7 @@ export function Home() {
             </a>
           </div>
         </div>
-        <HeroUte />
+        <HeroVisual />
         <ul className="hero-stats" aria-label="Why buy from us">
           <li>
             <strong>NZD</strong>
