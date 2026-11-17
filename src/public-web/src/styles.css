@@ -180,25 +180,17 @@ button.btn {
     var(--steel);
   overflow: hidden;
 }
-.hero::after {
-  content: '';
+.hero-visual {
   position: absolute;
-  right: -6vw;
-  top: 12%;
-  width: min(42vw, 520px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background:
-    radial-gradient(
-      circle,
-      var(--steel) 0 18%,
-      var(--hazard) 18% 22%,
-      transparent 22%
-    ),
-    repeating-conic-gradient(var(--plate) 0 8deg, var(--line) 8deg 10deg);
-  border: 26px solid var(--plate);
-  opacity: 0.85;
+  right: 0;
+  top: clamp(150px, 15vw, 230px);
+  width: min(54vw, 760px);
   pointer-events: none;
+}
+.hero-visual svg {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 .hero-copy {
   position: relative;
@@ -677,11 +669,10 @@ footer {
     position: static;
     flex-wrap: wrap;
   }
-  .hero::after {
-    width: 70vw;
-    right: -30vw;
-    top: 4%;
-    opacity: 0.35;
+  .hero-visual {
+    position: static;
+    width: 100%;
+    margin-top: 36px;
   }
   .hero-stats {
     grid-template-columns: 1fr;
