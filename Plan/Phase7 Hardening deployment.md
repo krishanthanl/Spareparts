@@ -50,3 +50,21 @@ Read Masterprompt.md first. Before coding, submit files, DB changes, endpoints, 
 - Upgrade to paid Prisma only after cost approval. Document credential rotation, backup verification, connection/configuration changes if any, smoke checks and rollback/recovery.
 - Release checks cover single-location totals, no negative stock, rejection of backdating, NZ DST boundaries, non-GST totals/credit reconciliation, delivery and manual/gateway refund recovery.
 
+
+## Review 2026-11-17: gaps found after Phases 0-2
+
+### Source control and CI (the repository is now on GitHub)
+- Create a `main` branch and make it the default; merge phase branches through pull requests. Protect `main`: no force pushes, CI must pass.
+- GitHub Actions: backend build and tests, both frontends (typecheck, lint, format, Vitest, build), Playwright smoke tests, and the PostgreSQL integration tests against a PostgreSQL service container. Docker is available on GitHub runners, so the currently skipped tests finally run on every push.
+- Turn on secret scanning. **Release blocker:** `Plan/DBConString.md` contains a plain-text "Super Admin Pass" that is in the GitHub history. No real account may use that password; if one did, change it. If the repository is or becomes public, treat the password as leaked. Keep such notes in a password manager.
+
+### Things Phase 1 left for production
+- **JWT signing key** comes from Key Vault or app settings. Support rotation: sign with the new key while still accepting the previous one for one access-token lifetime (the key id is currently fixed as `spareparts-1`).
+- **Several API instances:** the access cache (15 s), per-email login throttle and rate limiter are per instance. That is acceptable at this shop's size; if scaling out, either accept per-instance limits or move them to a shared store. Account lockout is already shared through the database.
+- **Cookies and domains:** confirm the admin app and API share a registrable domain (ADR 0003, D14) before choosing Azure hostnames; otherwise the CSRF design must change.
+- **Security events:** set a retention period and add a simple admin view or export of sign-in failures, lockouts and token replays.
+- **Images:** implement `IFileStorage` for Azure Blob Storage and copy existing local media once. The 100 imported items' images live only in `src/backend/Api/.data/media` on the dev machine and are not in Git. Back them up with the database.
+
+### Operations
+- Health checks already exist (`/health/live`, `/health/ready`); connect them to Azure availability alerts.
+- Write a one-page owner runbook: adding staff, resetting a password, unlocking an account, what to do if the site is down, and who to call.

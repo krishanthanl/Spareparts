@@ -45,3 +45,19 @@ Display NZD clearly using en-NZ formatting. The shop is not GST-registered: show
 Provide delivery coverage/charges information and a returns/refunds policy page with owner-approved content; do not invent commercial terms or remove statutory rights.
 Show delivery estimates as estimates; final delivery/tax totals are calculated in Phase 6. Customer refund requests and paid checkout are not implemented here.
 
+
+## Review 2026-11-17: what already exists, and what is missing
+
+### Already built early (during Phase 2): finish it, don't rebuild it
+- Public API: `GET /api/public/categories` and `GET /api/public/items` (category filter, text search, paging; active and non-deleted only; no cost or stock data).
+- Storefront home: hero with the pickup photo, live categories, part search and photo grid, contact section.
+- Item thumbnails and full images (WebP) are already generated and served from `/media`.
+- `src/public-web/index.html` still has `<meta name="robots" content="noindex,nofollow">`. Remove it in this phase, together with the sitemap, once item pages exist.
+
+### Still to do
+- Item detail page and gallery, related items, the vehicle quick finder (makes, models and fitment years already exist in the database), URL-driven filters, price and availability display, cart.
+- **Prices depend on Phase 3.** Use the current selling price from `ItemPriceHistory`. Items without a price show "Ask for price" with call/email buttons and cannot go in the cart.
+- **Enquiry path.** Many parts customers phone first. Add an "Ask about this part" action on item pages that opens phone or email with the SKU and part name filled in. No stored form or customer data in this phase.
+- **Availability labels** come from on-hand minus reservations (Phases 3-4): In stock / Low stock (at or below reorder level) / Out of stock. Items with no reorder level never show Low stock.
+- **Performance budget** for a mobile-first shop: aim for under about 200 KB of JavaScript on first load of the home page, lazy-loaded images with width and height set, and short cache headers on public API responses (e.g. 60 s) so prices stay fresh.
+- **Analytics** (optional, needs owner approval): privacy-friendly page and search tracking to learn what customers look for. No third-party trackers without a privacy notice.
