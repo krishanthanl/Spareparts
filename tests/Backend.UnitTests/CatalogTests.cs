@@ -214,6 +214,31 @@ public sealed class CatalogModelTests
     }
 
     [Fact]
+    public void Child_rows_added_to_a_loaded_item_must_be_added_explicitly()
+    {
+        // Entity ids are set on construction, so EF treats a child found only through a navigation as an existing
+        // row and issues an UPDATE (DbUpdateConcurrencyException on a real database). Services add children explicitly.
+        using var db = NewContext();
+        var item = new Domain.Catalog.Item { Sku = "A-1", Name = "Part", CategoryId = Guid.NewGuid() };
+        db.Attach(item);
+
+        var implicitImage = new ItemImage { StorageKey = "a.webp", ThumbnailKey = "a-thumb.webp", ContentType = "image/webp" };
+        item.Images.Add(implicitImage);
+        db.ChangeTracker.DetectChanges();
+        Assert.Equal(EntityState.Modified, db.Entry(implicitImage).State);
+
+        var image = new ItemImage { ItemId = item.Id, StorageKey = "b.webp", ThumbnailKey = "b-thumb.webp", ContentType = "image/webp" };
+        db.ItemImages.Add(image);
+        item.Images.Add(image);
+        var fitment = new ItemFitment { ItemId = item.Id, VehicleModelId = Guid.NewGuid() };
+        db.ItemFitments.Add(fitment);
+        item.Fitments.Add(fitment);
+        db.ChangeTracker.DetectChanges();
+        Assert.Equal(EntityState.Added, db.Entry(image).State);
+        Assert.Equal(EntityState.Added, db.Entry(fitment).State);
+    }
+
+    [Fact]
     public void Every_catalog_table_has_audit_columns()
     {
         using var db = NewContext();

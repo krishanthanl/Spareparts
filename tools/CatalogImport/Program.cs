@@ -124,9 +124,10 @@ try
             written.Add(key);
             await storage.SaveAsync(thumbKey, new MemoryStream(image.Thumbnail), ProcessedImage.ContentType, CancellationToken.None);
             written.Add(thumbKey);
-            item.Images.Add(new ItemImage
+            // Ids are set in the entity, so add the new row explicitly or EF treats it as an existing one.
+            db.ItemImages.Add(new ItemImage
             {
-                StorageKey = key, ThumbnailKey = thumbKey, ContentType = ProcessedImage.ContentType, ByteSize = image.Full.Length,
+                ItemId = item.Id, StorageKey = key, ThumbnailKey = thumbKey, ContentType = ProcessedImage.ContentType, ByteSize = image.Full.Length,
                 Width = image.Width, Height = image.Height, IsPrimary = true, SortOrder = 0, AltText = item.Name,
             });
             await db.SaveChangesAsync();

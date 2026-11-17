@@ -26,5 +26,6 @@ Status: accepted (approved proposal `Plan/Phase2-Design-Proposal.md`, 2026-11-16
 ## Open items
 
 - Phase 1 must issue the `permission: catalog.manage` claim to catalogue staff.
-- Real PostgreSQL verification (migration apply, integration tests, import) is pending a database; see `docs/testing.md`.
+- Migration and import verified on hosted Prisma Postgres (2026-11-17). Integration tests still need a disposable database; see `docs/testing.md`.
+- New child rows (images, fitments) must be added to their DbSet explicitly, because entity ids are set on construction.
 - Thumbnails for existing images if thumbnail size changes later would need a regeneration command.
