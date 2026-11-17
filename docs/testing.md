@@ -57,3 +57,11 @@ No stock/GRN/invoice/return implementation exists yet. Their transaction, race, 
 - The PostgreSQL integration tests were **not** run: they create and drop databases and must not point at the shop database. They still need a disposable server.
 
 Enable the PostgreSQL tests with RUN_POSTGRES_TESTS=1 (Docker) or TEST_POSTGRES_CONNECTION; the catalogue tests also need permission to create and drop a database.
+
+## Recorded Phase 1 results (2026-11-17)
+
+- Backend: 113 unit/API tests passed (35 new). They run the real JWT bearer pipeline and permission policies with only the database-backed access lookup faked: expired/foreign-key/foreign-audience tokens, stamp change and deactivation (401), missing permission and hidden-menu APIs called directly (403), SuperAdmin bypass, deleted-record permission, refresh/logout Origin + CSRF header checks, cookie attributes (HttpOnly, Secure, SameSite=Strict, Path=/api/auth), generic login 401, per-IP login limit (429), permission evaluation (deny wins), validators and Identity options.
+- PostgreSQL: 9 new auth tests compile and are skipped here (no Docker): rotation, simultaneous refresh (one winner), replay revokes the family, lockout, same answer for unknown/inactive/wrong password, logout, password change ends other sessions, deactivation, concurrent last-SuperAdmin removal, overrides and menus, idempotent seeding. **Not yet run against a real database.**
+- Admin web: 17 Vitest tests passed (session restore on reload, token only in memory, sidebar from allowed menus, blocked pages, sign-in errors, forced password change, refresh-and-retry on 401, one shared refresh for simultaneous 401s). Type check, lint, format and production build passed.
+- Browser: 6 Playwright checks passed on desktop and mobile; the admin app opens on sign-in with nothing in browser storage.
+- Not verified: a real sign-in end to end (the Phase1Auth migration is not applied to the hosted database yet and no SuperAdmin exists).

@@ -1,6 +1,6 @@
 # Phase 1 Auth & RBAC — Design Proposal
 
-Status: **draft, awaiting approval.** Nothing is built until you approve or amend the decisions below.
+Status: **approved 2026-11-17** as proposed. Recorded in `docs/decisions/0003-auth.md`.
 
 Spec: `Plan/Masterprompt.md`, `Plan/Phase1-Authenticationauthorization.md`.
 Builds on: Phase 0 foundation and Phase 2 catalogue (the `catalog.manage` policy already exists and fails closed with 401).
