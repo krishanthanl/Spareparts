@@ -32,6 +32,7 @@ public static class PermissionKeys
     public const string RefundsCreate = "refunds.create";
     public const string RefundsApprove = "refunds.approve";
     public const string RefundsExecute = "refunds.execute";
+    public const string CreditNotesIssue = "creditnotes.issue";
 
     public static readonly IReadOnlyList<PermissionDefinition> All =
     [
@@ -61,6 +62,7 @@ public static class PermissionKeys
         new(RefundsCreate, "Refunds", "Create refund requests"),
         new(RefundsApprove, "Refunds", "Approve refunds"),
         new(RefundsExecute, "Refunds", "Pay out approved refunds"),
+        new(CreditNotesIssue, "Sales", "Issue credit notes without a return (price adjustments, delivery)"),
     ];
 
     private static readonly HashSet<string> Known = All.Select(x => x.Key).ToHashSet(StringComparer.Ordinal);

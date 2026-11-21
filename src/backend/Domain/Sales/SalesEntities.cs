@@ -96,6 +96,17 @@ public sealed class SalesOrder : AuditableEntity
     public DeliveryMethod DeliveryMethod { get; set; } = DeliveryMethod.Pickup;
     public string? DeliveryAddress { get; set; }
     public decimal DeliveryCharge { get; set; }
+    // Delivery snapshot (ADR 0006, D4): what the quote was based on, kept even if zones change later.
+    public string? DeliveryPostcode { get; set; }
+    public bool DeliveryIsRural { get; set; }
+    public string? DeliveryZoneName { get; set; }
+    public string? DeliveryPromise { get; set; }
+    /// <summary>Set when staff charged something other than the zone quote.</summary>
+    public string? DeliveryChargeReason { get; set; }
+    /// <summary>Sum of credit notes issued against this invoice.</summary>
+    public decimal CreditTotal { get; set; }
+    /// <summary>Sum of succeeded refunds.</summary>
+    public decimal RefundedTotal { get; set; }
     /// <summary>Sum of quantity x unit price, per line rounded to cents.</summary>
     public decimal Subtotal { get; set; }
     public decimal LineDiscountTotal { get; set; }
@@ -114,6 +125,13 @@ public sealed class SalesOrder : AuditableEntity
     public string? CancelReason { get; set; }
     public uint Version { get; set; }
     public List<SalesOrderLine> Lines { get; } = [];
+
+    /// <summary>What the customer must pay after credit notes.</summary>
+    public decimal NetTotal => Total - CreditTotal;
+    /// <summary>Money kept by the shop: receipts minus voids minus refunds paid out.</summary>
+    public decimal NetPaid => AmountPaid - RefundedTotal;
+    /// <summary>Positive: the customer owes the shop. Negative: the shop owes the customer.</summary>
+    public decimal Balance => Status == SalesOrderStatus.Cancelled ? -NetPaid : NetTotal - NetPaid;
 }
 
 public sealed class SalesOrderLine : AuditableEntity
@@ -141,6 +159,8 @@ public sealed class StockIssue : AuditableEntity
     public Guid OrderId { get; set; }
     public DateTimeOffset PostedAt { get; set; }
     public string? IdempotencyKey { get; set; }
+    /// <summary>Set when the goods left as a shipment (ADR 0006, D5). Unique: a shipment issues stock once.</summary>
+    public Guid? ShipmentId { get; set; }
     public List<StockIssueLine> Lines { get; } = [];
 }
 

@@ -129,6 +129,11 @@ public sealed class SalesReportsController(ITakingsReportService takings) : Cont
             foreach (var p in day.Payments)
                 csv.Append(System.Globalization.CultureInfo.InvariantCulture,
                     $"{day.Date:yyyy-MM-dd},{p.ReceivedAt:O},{Cell(p.ReceiptNumber)},{Cell(p.InvoiceNumber)},{Cell(p.CustomerName)},{p.Method},{p.Amount:0.00},{Cell(p.Reference)},{Cell(p.ReceivedBy)},{(p.IsVoid ? "yes" : "no")}\n");
+        // Refunds paid out are money leaving the till or bank: listed as negative rows (ADR 0006, D12).
+        foreach (var day in report.Days)
+            foreach (var r in day.Refunds ?? [])
+                csv.Append(System.Globalization.CultureInfo.InvariantCulture,
+                    $"{day.Date:yyyy-MM-dd},{r.CompletedAt:O},{Cell(r.RefundNumber)},{Cell(r.InvoiceNumber)},{Cell(r.CustomerName)},{r.Method},{-r.Amount:0.00},{Cell(r.EvidenceReference)},{Cell(r.CompletedBy)},refund\n");
         return File(System.Text.Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", $"takings-{request.From:yyyy-MM-dd}-to-{request.To:yyyy-MM-dd}.csv");
     }
 }
