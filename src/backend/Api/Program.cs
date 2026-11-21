@@ -32,15 +32,19 @@ builder.Services.AddSerilog(logging =>
         .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
         .MinimumLevel.Override("Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware", LogEventLevel.Fatal)
         .Enrich.FromLogContext().WriteTo.Console();
-    // Errors logged outside a request (background workers) become Sentry events; recent log lines ride
-    // along as breadcrumbs. Request failures are reported by GlobalExceptionHandler, so its own log line
-    // is left out here to avoid sending the same failure twice.
+    // Only errors go to Sentry. Errors logged by our own code outside a request (background workers)
+    // become events; request failures are reported by GlobalExceptionHandler, so its log line is left
+    // out to avoid duplicates. Framework errors (Microsoft.*, e.g. EF "Failed executing DbCommand") are
+    // left out too: the same failure already reaches Sentry as the exception our code logs or throws.
+    // No info/warning breadcrumbs are sent.
     if (sentryEnabled)
         logging.WriteTo.Logger(sentry => sentry
+            .MinimumLevel.Error()
             .Filter.ByExcluding(Serilog.Filters.Matching.FromSource<GlobalExceptionHandler>())
+            .Filter.ByExcluding(Serilog.Filters.Matching.FromSource("Microsoft"))
             .WriteTo.Sentry(options =>
             {
-                options.MinimumBreadcrumbLevel = LogEventLevel.Information;
+                options.MinimumBreadcrumbLevel = LogEventLevel.Fatal;
                 options.MinimumEventLevel = LogEventLevel.Error;
             }));
 });

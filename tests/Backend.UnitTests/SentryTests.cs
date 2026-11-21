@@ -6,6 +6,7 @@ using Sentry;
 
 namespace Backend.UnitTests;
 
+[Collection(nameof(SentryDeliveryTests))]
 public sealed class SentryTests
 {
     [Fact]
@@ -14,6 +15,32 @@ public sealed class SentryTests
         Assert.False(SentrySetup.IsEnabled(new ConfigurationBuilder().Build()));
         Assert.False(SentrySetup.IsEnabled(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Sentry:Dsn"] = " " }).Build()));
         Assert.True(SentrySetup.IsEnabled(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Sentry:Dsn"] = "https://k@o1.ingest.sentry.io/1" }).Build()));
+    }
+
+    [Theory]
+    [InlineData("https://abc123@o1.ingest.sentry.io/456", true)]
+    [InlineData("https://abc123@o1.ingest.us.sentry.io/456/", true)]
+    [InlineData("https://o1.ingest.sentry.io/456", false)] // no public key: the Azure crash
+    [InlineData("https://sentry.io/organizations/shop/projects/api/", false)]
+    [InlineData("abc123", false)]
+    [InlineData("ftp://abc@host/1", false)]
+    [InlineData("https://abc@host", false)] // no project id
+    public void Only_well_formed_dsns_turn_sentry_on(string dsn, bool valid) => Assert.Equal(valid, SentrySetup.IsValidDsn(dsn));
+
+    [Fact]
+    public async Task An_invalid_dsn_does_not_stop_the_api_starting()
+    {
+        Environment.SetEnvironmentVariable("Sentry__Dsn", "https://o1.ingest.sentry.io/456");
+        try
+        {
+            await using var factory = new AuthFactory();
+            var response = await factory.CreateClient().GetAsync("/health/live");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("Sentry__Dsn", null);
+        }
     }
 
     [Theory]
