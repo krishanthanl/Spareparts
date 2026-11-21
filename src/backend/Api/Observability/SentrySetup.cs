@@ -15,14 +15,32 @@ public static class SentrySetup
 {
     public const string SectionName = "Sentry";
 
-    public static bool IsEnabled(IConfiguration configuration) => !string.IsNullOrWhiteSpace(configuration[$"{SectionName}:Dsn"]);
+    /// <summary>On only with a well-formed DSN. A mistyped DSN must never stop the API from starting.</summary>
+    public static bool IsEnabled(IConfiguration configuration) => IsValidDsn(configuration[$"{SectionName}:Dsn"]);
+
+    /// <summary>
+    /// A Sentry DSN looks like <c>https://PUBLICKEY@o123.ingest.sentry.io/456</c>: http(s), a public key
+    /// before the @, a host, and a project id as the last path segment.
+    /// </summary>
+    public static bool IsValidDsn(string? dsn) =>
+        Uri.TryCreate(dsn?.Trim(), UriKind.Absolute, out var uri)
+        && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp)
+        && uri.UserInfo.Split(':')[0].Length > 0
+        && uri.AbsolutePath.Trim('/').Split('/')[^1].Length > 0;
 
     public static void Configure(WebApplicationBuilder builder)
     {
-        if (!IsEnabled(builder.Configuration)) return;
+        var dsn = builder.Configuration[$"{SectionName}:Dsn"];
+        if (!IsValidDsn(dsn))
+        {
+            // The value itself is not printed: it is a key.
+            if (!string.IsNullOrWhiteSpace(dsn))
+                Console.Error.WriteLine("Warning: Sentry__Dsn is not a valid Sentry DSN (expected https://PUBLICKEY@HOST/PROJECTID). Error reporting is off; the API continues without it.");
+            return;
+        }
         builder.WebHost.UseSentry(options =>
         {
-            options.Dsn = builder.Configuration[$"{SectionName}:Dsn"];
+            options.Dsn = dsn!.Trim();
             options.Environment = builder.Configuration[$"{SectionName}:Environment"] ?? builder.Environment.EnvironmentName.ToLowerInvariant();
             options.Release = builder.Configuration[$"{SectionName}:Release"];
             options.SendDefaultPii = false;
