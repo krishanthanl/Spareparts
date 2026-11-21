@@ -238,6 +238,8 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         await ConfirmCoreAsync(order, ct);
         await db.SaveChangesAsync(ct);
         await IssueCoreAsync(order, new IssueInput(null, null), ct);
+        // Save the issue so the payment's status refresh sees the issued quantities.
+        await db.SaveChangesAsync(ct);
         var amount = input.Amount ?? order.Total;
         if (amount > 0) await PayCoreAsync(order, input.Method, amount, input.Reference, input.IdempotencyKey, ct);
         await CommitPaymentAsync(transaction, ct);
