@@ -1,3 +1,4 @@
+using Application.Catalog;
 using Application.Common;
 using Application.Inventory;
 using Application.Sales;
@@ -122,6 +123,58 @@ public sealed class AfterSalePostgresTests : IAsyncLifetime
         await sp.GetRequiredService<AppDbContext>().StockMovements.Where(m => m.ItemId == item).SumAsync(m => m.QtyChange));
 
     private static string Key() => Guid.NewGuid().ToString("N");
+
+    [PostgresFact]
+    public async Task Storefront_filters_current_prices_and_fitment_and_checks_requested_quantities()
+    {
+        var first = await StockedItemAsync("WEB-1", 5, price: 25m);
+        var second = await StockedItemAsync("WEB-2", 8, price: 30m);
+        var modelId = await Run(async sp =>
+        {
+            var vehicles = sp.GetRequiredService<IVehicleService>();
+            var make = await vehicles.CreateMakeAsync(new NameInput("Toyota"), default);
+            var model = await vehicles.CreateModelAsync(make.Id, new NameInput("Corolla"), default);
+            var db = sp.GetRequiredService<AppDbContext>();
+            var items = await db.Items.Where(x => x.Id == first || x.Id == second).ToListAsync();
+            foreach (var item in items)
+            {
+                item.PartBrand = "Example";
+                item.ReorderLevel = 2;
+                db.Add(new ItemFitment { ItemId = item.Id, VehicleModelId = model.Id, YearFrom = 2019, YearTo = 2022 });
+            }
+            await db.SaveChangesAsync();
+            return model.Id;
+        });
+        await ConfirmedAsync(Input(new OrderLineInput(first, 3)));
+
+        await Run(async sp =>
+        {
+            var catalog = sp.GetRequiredService<IPublicCatalogService>();
+            var filters = new PublicItemQuery(Category: "brakes", Q: "WEB", Brand: "example", ModelId: modelId,
+                Year: 2022, MinPrice: 25, MaxPrice: 30, Availability: "LowStock", Sort: "price-asc");
+            var item = Assert.Single((await catalog.ItemsAsync(filters, default)).Items);
+            Assert.Equal(first, item.Id);
+            Assert.Equal(25m, item.Price);
+            Assert.Equal("LowStock", item.Availability);
+            Assert.Empty((await catalog.ItemsAsync(filters with { Year = 2023 }, default)).Items);
+            var page = await catalog.ItemsAsync(filters with { Availability = null, Page = 2, PageSize = 1 }, default);
+            Assert.Equal(2, page.TotalCount);
+            Assert.Equal(second, Assert.Single(page.Items).Id);
+            var detail = await catalog.DetailAsync(first, default);
+            Assert.Equal("Corolla", Assert.Single(detail.Fitments).Model);
+            Assert.Equal(second, Assert.Single(detail.Related).Id);
+            Assert.True(Assert.Single(await catalog.ValidateCartAsync(new([new(first, 2)]), default)).Accepted);
+            Assert.False(Assert.Single(await catalog.ValidateCartAsync(new([new(first, 3)]), default)).Accepted);
+            var missing = Assert.Single(await catalog.ValidateCartAsync(new([new(Guid.NewGuid(), 1)]), default));
+            Assert.False(missing.Accepted);
+            Assert.Null(missing.Item);
+            var json = System.Text.Json.JsonSerializer.Serialize(item).ToLowerInvariant();
+            Assert.DoesNotContain("onhand", json);
+            Assert.DoesNotContain("reserved", json);
+            Assert.DoesNotContain("cost", json);
+            return true;
+        });
+    }
 
     // ---------------- Delivery ----------------
 

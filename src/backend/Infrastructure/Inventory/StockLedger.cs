@@ -138,7 +138,7 @@ internal sealed class StockLedger(AppDbContext db)
             .Select(l => new { l.ItemId, Open = l.Quantity - (db.StockIssueLines.Where(i => i.OrderLineId == l.Id).Sum(i => (decimal?)i.Quantity) ?? 0) })
             .Where(x => x.Open > 0)
             .GroupBy(x => x.ItemId)
-            .Select(g => new ReservedQuantity(g.Key, g.Sum(x => x.Open)));
+            .Select(g => new ReservedQuantity { ItemId = g.Key, Quantity = g.Sum(x => x.Open) });
 
     private StockMovement Add(ItemPosition p, MovementType type, decimal qtyChange, decimal unitCost, MovementRef reference)
     {
@@ -158,7 +158,7 @@ internal sealed class StockLedger(AppDbContext db)
     public static IQueryable<CurrentPrice> CurrentPrices(AppDbContext db, IReadOnlyCollection<Guid>? ids = null) =>
         db.ItemPriceHistory.Where(p => ids == null || ids.Contains(p.ItemId))
             .Where(p => !db.ItemPriceHistory.Any(q => q.ItemId == p.ItemId && q.Sequence > p.Sequence))
-            .Select(p => new CurrentPrice(p.ItemId, p.SellingPrice));
+            .Select(p => new CurrentPrice { ItemId = p.ItemId, SellingPrice = p.SellingPrice });
 
     /// <summary>Saves and commits, turning database stock-rule failures into clear 409s.</summary>
     public static async Task CommitAsync(AppDbContext db, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, CancellationToken ct)
@@ -187,9 +187,17 @@ internal sealed class StockLedger(AppDbContext db)
     };
 }
 
-internal sealed record CurrentPrice(Guid ItemId, decimal SellingPrice);
+internal sealed record CurrentPrice
+{
+    public Guid ItemId { get; init; }
+    public decimal SellingPrice { get; init; }
+}
 
-internal sealed record ReservedQuantity(Guid ItemId, decimal Quantity);
+internal sealed record ReservedQuantity
+{
+    public Guid ItemId { get; init; }
+    public decimal Quantity { get; init; }
+}
 
 internal sealed record MovementRef(string Type, Guid Id, Guid? LineId, string PostingKey, Guid? Reverses = null);
 

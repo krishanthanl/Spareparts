@@ -8,6 +8,7 @@ import {
 import { AxiosHeaders, type AxiosResponse } from 'axios';
 import { apiClient } from '../api/client';
 import { AppProviders } from '../providers/AppProviders';
+import { MemoryRouter } from 'react-router-dom';
 import { Home } from './Home';
 
 const categories = [
@@ -58,6 +59,7 @@ beforeEach(() => {
       config: { ...config, headers: new AxiosHeaders() },
     });
     if (url === '/api/public/categories') return ok(categories);
+    if (url === '/api/public/vehicles/makes') return ok([]);
     if (failItems) throw new Error('offline');
     const { category, q, page } = config.params as {
       category?: string;
@@ -74,7 +76,9 @@ beforeEach(() => {
 const renderHome = () =>
   render(
     <AppProviders>
-      <Home />
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
     </AppProviders>,
   );
 

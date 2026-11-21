@@ -1,7 +1,10 @@
 import { useState, type FormEvent } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useCategories } from '../api/catalog';
 import { shopContact } from '../lib/contact';
 import { CategoryGrid, PartsGrid } from './PartsCatalog';
+import { VehiclePicker } from './VehiclePicker';
+import type { PartsFilters } from '../api/catalog';
 
 /** Shown only when the live catalogue can't be reached. */
 const fallbackCategories = [
@@ -147,8 +150,14 @@ function HeroUte() {
   );
 }
 
-function PartSearch({ onSearch }: { onSearch: (q: string) => void }) {
-  const [query, setQuery] = useState('');
+function PartSearch({
+  initialQuery,
+  onSearch,
+}: {
+  initialQuery: string;
+  onSearch: (q: string) => void;
+}) {
+  const [query, setQuery] = useState(initialQuery);
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     onSearch(query.trim().slice(0, 100));
@@ -181,12 +190,20 @@ function PartSearch({ onSearch }: { onSearch: (q: string) => void }) {
 }
 
 export function Home() {
-  const [q, setQ] = useState('');
-  const [category, setCategory] = useState('');
+  const [params, setParams] = useSearchParams();
+  const [vehicle, setVehicle] = useState<PartsFilters>({});
+  const q = params.get('q') ?? '';
+  const category = params.get('category') ?? '';
+  function update(key: string, value: string) {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setParams(next);
+  }
   const categories = useCategories();
   const live = categories.data ?? [];
   const pick = (slug: string) => {
-    setCategory(slug);
+    update('category', slug);
     scrollToParts();
   };
   return (
@@ -200,32 +217,36 @@ export function Home() {
             owners — from daily drivers to work utes.
           </p>
           <div className="hero-actions">
-            <a className="btn btn-primary" href="#parts">
+            <Link className="btn btn-primary" to="/parts">
               Browse parts
-            </a>
+            </Link>
             <a className="btn btn-ghost" href="#contact">
               Talk to us
             </a>
           </div>
         </div>
         <HeroVisual />
-        <ul className="hero-stats" aria-label="Why buy from us">
-          <li>
-            <strong>NZD</strong>
-            <span>Prices in NZ dollars</span>
-          </li>
-          <li>
-            <strong>0% GST</strong>
-            <span>Not GST registered</span>
-          </li>
-          <li>
-            <strong>Trade</strong>
-            <span>Workshop accounts</span>
-          </li>
-        </ul>
       </section>
 
-      <PartSearch onSearch={setQ} />
+      <PartSearch
+        key={q}
+        initialQuery={q}
+        onSearch={(value) => update('q', value)}
+      />
+      <section className="store-section home-finder">
+        <VehiclePicker
+          values={vehicle}
+          change={(patch) =>
+            setVehicle((current) => ({ ...current, ...patch }))
+          }
+        />
+        <Link
+          className="btn btn-primary"
+          to={`/parts?${new URLSearchParams(Object.entries(vehicle).filter(([, value]) => value))}`}
+        >
+          Show matching parts
+        </Link>
+      </section>
 
       <section
         id="categories"
@@ -237,7 +258,11 @@ export function Home() {
           <p>Everything under the bonnet, and the bits around it.</p>
         </div>
         {live.length > 0 ? (
-          <CategoryGrid categories={live} selected={category} onSelect={pick} />
+          <CategoryGrid
+            categories={live.slice(0, 8)}
+            selected={category}
+            onSelect={pick}
+          />
         ) : (
           <ul className="category-grid">
             {fallbackCategories.map((c) => (
@@ -257,7 +282,7 @@ export function Home() {
         category={category}
         q={q}
         categories={live}
-        onCategory={setCategory}
+        onCategory={(value) => update('category', value)}
       />
 
       <section id="contact" className="contact" aria-labelledby="contact-title">

@@ -11,3 +11,8 @@ const date = new Intl.DateTimeFormat('en-NZ', {
 export const formatMoney = (value: number) => money.format(value);
 export const formatShopDate = (value: string | Date) =>
   date.format(new Date(value));
+export const availabilityLabel = {
+  InStock: 'In stock',
+  LowStock: 'Low stock',
+  OutOfStock: 'Out of stock',
+};

@@ -130,10 +130,45 @@ public sealed class VehicleMakesController(IVehicleService vehicles) : Controlle
 public sealed class PublicCatalogController(IPublicCatalogService catalog) : ControllerBase
 {
     [HttpGet("categories")]
+    [ResponseCache(Duration = 60)]
     public Task<IReadOnlyList<PublicCategoryDto>> Categories(CancellationToken ct) => catalog.CategoriesAsync(ct);
 
     [HttpGet("items")]
-    public Task<PagedResult<PublicItemDto>> Items([FromQuery] string? category, [FromQuery] string? q,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 24, CancellationToken ct = default) =>
-        catalog.ItemsAsync(category, q, page, pageSize, ct);
+    [ResponseCache(Duration = 60)]
+    public Task<PagedResult<PublicItemDto>> Items([FromQuery] PublicItemQuery query, CancellationToken ct) =>
+        catalog.ItemsAsync(query, ct);
+
+    [HttpGet("items/{id:guid}")]
+    [ResponseCache(Duration = 60)]
+    public Task<PublicItemDetail> Detail(Guid id, CancellationToken ct) => catalog.DetailAsync(id, ct);
+
+    [HttpGet("vehicles/makes")]
+    [ResponseCache(Duration = 60)]
+    public Task<IReadOnlyList<PublicVehicleMake>> Makes(CancellationToken ct) => catalog.MakesAsync(ct);
+
+    [HttpGet("vehicles/models")]
+    [ResponseCache(Duration = 60)]
+    public Task<IReadOnlyList<VehicleModelDto>> Models([FromQuery] Guid makeId, CancellationToken ct) =>
+        catalog.ModelsAsync(makeId, ct);
+
+    [HttpPost("cart/validate")]
+    [RequestSizeLimit(8192)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public Task<IReadOnlyList<PublicCartResult>> ValidateCart(PublicCartRequest request, CancellationToken ct) =>
+        catalog.ValidateCartAsync(request, ct);
+
+    [HttpGet("sitemap.xml")]
+    [ResponseCache(Duration = 60)]
+    public async Task<IActionResult> Sitemap([FromServices] IConfiguration configuration, CancellationToken ct)
+    {
+        if (!Uri.TryCreate(configuration["Storefront:Origin"], UriKind.Absolute, out var origin)
+            || origin.Scheme is not ("https" or "http"))
+            return NotFound();
+        System.Xml.Linq.XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+        var ids = await catalog.SitemapIdsAsync(ct);
+        var paths = new[] { "/", "/parts", "/delivery-and-returns" }.Concat(ids.Select(id => $"/parts/{id}"));
+        var xml = new System.Xml.Linq.XElement(ns + "urlset", paths.Select(path =>
+            new System.Xml.Linq.XElement(ns + "url", new System.Xml.Linq.XElement(ns + "loc", new Uri(origin, path).AbsoluteUri))));
+        return Content(xml.ToString(), "application/xml");
+    }
 }

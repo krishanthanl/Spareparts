@@ -20,6 +20,50 @@ export type PublicItem = {
   partBrand: string | null;
   imageUrl: string | null;
   thumbnailUrl: string | null;
+  price: number | null;
+  availability: 'InStock' | 'LowStock' | 'OutOfStock';
+};
+
+export type PartsFilters = Partial<
+  Record<
+    | 'category'
+    | 'q'
+    | 'brand'
+    | 'makeId'
+    | 'modelId'
+    | 'year'
+    | 'minPrice'
+    | 'maxPrice'
+    | 'availability'
+    | 'sort',
+    string
+  >
+>;
+export type VehicleOption = { id: string; name: string };
+export type ItemDetail = {
+  item: PublicItem;
+  images: {
+    id: string;
+    url: string;
+    thumbnailUrl: string;
+    width: number;
+    height: number;
+    altText: string | null;
+  }[];
+  fitments: {
+    id: string;
+    make: string;
+    model: string;
+    yearFrom: number | null;
+    yearTo: number | null;
+  }[];
+  related: PublicItem[];
+};
+export type CartQuantity = { itemId: string; quantity: number };
+export type CartResult = {
+  itemId: string;
+  item: PublicItem | null;
+  accepted: boolean;
 };
 
 export type Paged<T> = {
@@ -38,16 +82,39 @@ export const mediaUrl = (path: string | null) =>
 export const publicCatalog = {
   categories: async () =>
     (await apiClient.get<PublicCategory[]>('/api/public/categories')).data,
-  items: async (params: { category?: string; q?: string; page: number }) =>
+  items: async (
+    params: PartsFilters & { page: number },
+    signal?: AbortSignal,
+  ) =>
     (
       await apiClient.get<Paged<PublicItem>>('/api/public/items', {
-        params: {
-          category: params.category || undefined,
-          q: params.q || undefined,
-          page: params.page,
-          pageSize: PAGE_SIZE,
-        },
+        params: { ...params, pageSize: PAGE_SIZE },
+        signal,
       })
+    ).data,
+  detail: async (id: string, signal?: AbortSignal) =>
+    (
+      await apiClient.get<ItemDetail>(
+        `/api/public/items/${encodeURIComponent(id)}`,
+        { signal },
+      )
+    ).data,
+  makes: async () =>
+    (await apiClient.get<VehicleOption[]>('/api/public/vehicles/makes')).data,
+  models: async (makeId: string, signal?: AbortSignal) =>
+    (
+      await apiClient.get<VehicleOption[]>('/api/public/vehicles/models', {
+        params: { makeId },
+        signal,
+      })
+    ).data,
+  validate: async (lines: CartQuantity[], signal?: AbortSignal) =>
+    (
+      await apiClient.post<CartResult[]>(
+        '/api/public/cart/validate',
+        { lines },
+        { signal },
+      )
     ).data,
 };
 
@@ -55,6 +122,6 @@ export function useCategories() {
   return useQuery({
     queryKey: ['public-categories'],
     queryFn: publicCatalog.categories,
-    staleTime: 5 * 60_000,
+    staleTime: 60_000,
   });
 }
