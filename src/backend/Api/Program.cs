@@ -54,6 +54,10 @@ builder.Services.AddDbContext<AppDbContext>((services, options) => options
 var storageSettings = builder.Configuration.GetSection("Storage").Get<StorageSettings>() ?? new StorageSettings();
 storageSettings.LocalRoot = Path.GetFullPath(storageSettings.LocalRoot, builder.Environment.ContentRootPath);
 builder.Services.AddCatalogInfrastructure(storageSettings);
+builder.Services.AddScoped<Application.Checkout.CheckoutQuoteService>();
+builder.Services.AddScoped<Infrastructure.Sales.CheckoutOrders>();
+builder.Services.AddScoped<Application.Checkout.ICheckoutOrders>(services => services.GetRequiredService<Infrastructure.Sales.CheckoutOrders>());
+if (!builder.Environment.IsEnvironment("Testing")) builder.Services.AddHostedService<Api.CheckoutExpiryWorker>();
 builder.Services.AddSingleton(builder.Configuration.GetSection(Application.Sales.ShopSettings.SectionName).Get<Application.Sales.ShopSettings>() ?? new Application.Sales.ShopSettings());
 var allowEphemeralKey = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing");
 var ephemeralKey = JwtSettings.EphemeralKey();
@@ -80,6 +84,9 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(AuthController.LoginRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
         http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.AddPolicy(CheckoutController.RateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     options.OnRejected = async (context, ct) =>
         await Results.Problem(statusCode: 429, title: "Too many requests.", detail: "Too many attempts. Wait a minute and try again.").ExecuteAsync(context.HttpContext);
 });

@@ -487,6 +487,8 @@ export function OrderPage() {
     ) : (
       <p role="status">Loading…</p>
     );
+  if (existing.data.status === 'Draft' && existing.data.source === 'Online')
+    return <StorefrontOrder order={existing.data} />;
   return existing.data.status === 'Draft' ? (
     <OrderEditor
       key={existing.data.id + existing.data.version}
@@ -494,6 +496,76 @@ export function OrderPage() {
     />
   ) : (
     <InvoiceView order={existing.data} />
+  );
+}
+
+function StorefrontOrder({ order }: { order: Order }) {
+  const { can } = useAuth();
+  const queryClient = useQueryClient();
+  const [reference, setReference] = useState('');
+  const [key] = useState(() => crypto.randomUUID());
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<ApiProblem | null>(null);
+
+  return (
+    <Stack spacing={2}>
+      <Button component={Link} to="/sales/invoices">
+        ← Orders and invoices
+      </Button>
+      <Typography variant="h4">
+        Storefront order awaiting bank transfer
+      </Typography>
+      <p>Order reference {order.id}</p>
+      <p>
+        {order.customerName} · {order.customerEmail} · {order.customerPhone}
+      </p>
+      <p>
+        {order.deliveryMethod} {order.deliveryAddress} {order.deliveryPostcode}
+      </p>
+      <ul>
+        {order.lines.map((line) => (
+          <li key={line.id}>
+            {line.quantity} × {line.description}
+          </li>
+        ))}
+      </ul>
+      <p>Total {formatMoney(order.total)}</p>
+      <ProblemAlert problem={problem} />
+      {can('payments.record') && (
+        <form
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setBusy(true);
+            setProblem(null);
+            try {
+              const saved = await salesApi.pay(order.id, {
+                method: 'BankTransfer',
+                amount: order.total,
+                reference,
+                idempotencyKey: key,
+              });
+              queryClient.setQueryData(['order', order.id], saved);
+              void queryClient.invalidateQueries({ queryKey: ['orders'] });
+            } catch (error) {
+              setProblem(describeError(error));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <TextField
+            label="Verified bank transfer reference"
+            value={reference}
+            onChange={(event) => setReference(event.target.value)}
+            required
+            disabled={busy}
+          />
+          <Button type="submit" disabled={busy || !reference.trim()}>
+            Record transfer and create invoice
+          </Button>
+        </form>
+      )}
+    </Stack>
   );
 }
 

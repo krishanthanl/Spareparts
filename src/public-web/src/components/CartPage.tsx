@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { publicCatalog } from '../api/catalog';
 import { useCart, type SavedLine } from '../lib/cart';
 import { formatMoney } from '../lib/shop';
+import { CartQuote } from './CartQuote';
 
 function CartLine({
   line,
@@ -103,7 +104,7 @@ function CartLine({
   );
 }
 
-function CartContents() {
+function CartContents({ showQuote = false }: { showQuote?: boolean }) {
   const lines = useCart((state) => state.lines);
   const quantities = lines.map(({ itemId, quantity }) => ({
     itemId,
@@ -153,6 +154,14 @@ function CartContents() {
       {total !== null && (
         <strong>Parts subtotal (NZD) {formatMoney(total)}</strong>
       )}
+      {showQuote && total !== null && (
+        <CartQuote key={JSON.stringify(quantities)} lines={quantities} />
+      )}
+      {showQuote && (
+        <p>
+          <Link to="/checkout">Checkout and order tracking</Link>
+        </p>
+      )}
       <p>
         <Link to="/#contact">Contact the shop</Link>
       </p>
@@ -164,7 +173,7 @@ export function CartPage() {
   return (
     <section className="store-section">
       <h1>Your cart</h1>
-      <CartContents />
+      <CartContents showQuote />
     </section>
   );
 }

@@ -1,4 +1,5 @@
 using Application.Common;
+using Application.Checkout;
 using Application.Inventory;
 using Application.Sales;
 using Domain.Catalog;
@@ -6,6 +7,7 @@ using Domain.Inventory;
 using Domain.Sales;
 using Infrastructure;
 using Infrastructure.Persistence;
+using Infrastructure.Sales;
 using Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -52,6 +54,8 @@ public sealed class SalesPostgresTests : IAsyncLifetime
         services.AddScoped<AuditSaveChangesInterceptor>();
         services.AddDbContext<AppDbContext>((sp, o) => o.UseNpgsql(connection).AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>()));
         services.AddCatalogInfrastructure(new StorageSettings { LocalRoot = Path.Combine(Path.GetTempPath(), database) });
+        services.AddScoped<CheckoutQuoteService>();
+        services.AddScoped<CheckoutOrders>();
         provider = services.BuildServiceProvider();
         await using var scope = provider.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -114,6 +118,58 @@ public sealed class SalesPostgresTests : IAsyncLifetime
 
     private Task<StockRow> StockRowAsync(Guid item) => Run(async sp =>
         (await sp.GetRequiredService<IStockQueryService>().StockAsync(new StockRequest(PageSize: 100), default)).Items.Items.Single(r => r.ItemId == item));
+
+    [PostgresFact]
+    public async Task Storefront_draft_holds_stock_and_verified_transfer_posts_one_invoice_and_payment()
+    {
+        var item = await StockedItemAsync("WEB-100", 1);
+        var request = new CheckoutOrderRequest(new CheckoutQuoteRequest([new(item, 1)], CheckoutFulfillment.Pickup, null, false),
+            Guid.NewGuid(), "Sam Driver", "sam@example.test", null, "1 Queen St, Auckland", null, [25m], 0m);
+        var results = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => Run(sp => sp.GetRequiredService<CheckoutOrders>().PlaceAsync(request, default))));
+        var order = results[0];
+        Assert.Equal(order.OrderId, results[1].OrderId);
+        Assert.Equal(SalesOrderStatus.Draft, order.Status);
+        Assert.Equal(0, (await StockRowAsync(item)).Available);
+        Assert.Equal(1, await OnHandAsync(item));
+        await Assert.ThrowsAsync<ConflictException>(() => Run(sp => sp.GetRequiredService<CheckoutOrders>().PlaceAsync(request with { RequestKey = Guid.NewGuid() }, default)));
+        await Assert.ThrowsAsync<NotFoundException>(() => Run(sp => sp.GetRequiredService<CheckoutOrders>().TrackAsync(order.OrderId, Guid.NewGuid(), default)));
+
+        var transfer = new PaymentInput(PaymentMethod.BankTransfer, 25m, "Verified statement reference", Guid.NewGuid().ToString());
+        var paid = await Orders(s => s.RecordPaymentAsync(order.OrderId, transfer, default));
+        var replay = await Orders(s => s.RecordPaymentAsync(order.OrderId, transfer, default));
+        Assert.NotNull(paid.InvoiceNumber);
+        Assert.Equal(paid.InvoiceNumber, replay.InvoiceNumber);
+        Assert.Single(replay.Payments);
+        Assert.Equal(PaymentStatus.Paid, replay.PaymentStatus);
+        Assert.Equal(0, (await StockRowAsync(item)).Available);
+        Assert.Equal(1, await OnHandAsync(item));
+    }
+
+    [PostgresFact]
+    public async Task Expired_storefront_draft_releases_stock_and_cannot_accept_payment()
+    {
+        var item = await StockedItemAsync("WEB-101", 1);
+        var request = new CheckoutOrderRequest(new CheckoutQuoteRequest([new(item, 1)], CheckoutFulfillment.Pickup, null, false),
+            Guid.NewGuid(), "Sam Driver", "sam@example.test", null, "1 Queen St, Auckland", null, [25m], 0m);
+        var order = await Run(sp => sp.GetRequiredService<CheckoutOrders>().PlaceAsync(request, default));
+        await Run(async sp =>
+        {
+            var db = sp.GetRequiredService<AppDbContext>();
+            var draft = await db.SalesOrders.SingleAsync(x => x.Id == order.OrderId);
+            draft.CheckoutHoldUntil = DateTimeOffset.UtcNow.AddMinutes(-1);
+            return await db.SaveChangesAsync();
+        });
+        Assert.Equal(1, (await StockRowAsync(item)).Available);
+        await Assert.ThrowsAsync<ConflictException>(() => Orders(s => s.RecordPaymentAsync(order.OrderId,
+            new PaymentInput(PaymentMethod.BankTransfer, 25m, "Late transfer", Guid.NewGuid().ToString()), default)));
+        var tracked = await Run(async sp =>
+        {
+            var checkout = sp.GetRequiredService<CheckoutOrders>();
+            await checkout.ExpireAsync(default);
+            return await checkout.TrackAsync(order.OrderId, request.RequestKey, default);
+        });
+        Assert.Equal(SalesOrderStatus.Cancelled, tracked.Status);
+    }
 
     [PostgresFact]
     public async Task Confirm_reserves_stock_and_only_one_of_two_racing_orders_gets_the_last_unit()
