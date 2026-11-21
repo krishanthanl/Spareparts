@@ -733,15 +733,18 @@ function InvoiceView({ order }: { order: Order }) {
         useFlexGap
         sx={{ mb: 2, flexWrap: 'wrap' }}
       >
-        {order.status === 'Confirmed' && toIssue > 0 && can('sales.issue') && (
-          <Button
-            variant="contained"
-            disabled={busy}
-            onClick={() => setDialog('issue')}
-          >
-            Issue stock
-          </Button>
-        )}
+        {order.status === 'Confirmed' &&
+          order.deliveryMethod === 'Pickup' &&
+          toIssue > 0 &&
+          can('sales.issue') && (
+            <Button
+              variant="contained"
+              disabled={busy}
+              onClick={() => setDialog('issue')}
+            >
+              Issue stock
+            </Button>
+          )}
         {live && order.balanceDue > 0 && can('payments.record') && (
           <Button
             variant="contained"
