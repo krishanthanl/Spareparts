@@ -1,0 +1,73 @@
+name: Azure Static Web Apps CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build_and_deploy_job:
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    name: Build and Deploy Public Website
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build public website
+        run: npm run build --workspace=@spareparts/public-web
+        env:
+          VITE_API_BASE_URL: https://auto-aaf5abc0cneeffhe.westus3-01.azurewebsites.net
+          VITE_SHOP_PHONE: ${{ vars.VITE_SHOP_PHONE }}
+          VITE_SHOP_EMAIL: ${{ vars.VITE_SHOP_EMAIL }}
+          VITE_SHOP_HOURS: ${{ vars.VITE_SHOP_HOURS }}
+          VITE_SHOP_LOCATION: ${{ vars.VITE_SHOP_LOCATION }}
+          VITE_DELIVERY_INFORMATION: ${{ vars.VITE_DELIVERY_INFORMATION }}
+          VITE_RETURNS_INFORMATION: ${{ vars.VITE_RETURNS_INFORMATION }}
+
+      - name: Get ID Token
+        uses: actions/github-script@v7
+        id: idtoken
+        with:
+          script: |
+            return await core.getIDToken()
+          result-encoding: string
+
+      - name: Deploy public website
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_JOLLY_BUSH_0DC8B0F1E }}
+          github_id_token: ${{ steps.idtoken.outputs.result }}
+          action: upload
+          app_location: src/public-web/dist
+          api_location: ""
+          output_location: ""
+          skip_app_build: true
+
+  close_pull_request_job:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    name: Close Pull Request
+    steps:
+      - name: Close preview deployment
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_JOLLY_BUSH_0DC8B0F1E }}
+          action: close

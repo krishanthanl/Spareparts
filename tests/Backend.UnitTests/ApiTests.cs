@@ -69,6 +69,32 @@ public sealed class ApiTests
         Assert.True(body.GetProperty("errors").TryGetProperty("Name", out _));
     }
 
+    [Fact]
+    public async Task Public_storefront_rejects_invalid_filters_and_cart_lines_without_a_database()
+    {
+        await using var factory = new FoundationFactory();
+        var client = factory.CreateClient();
+        var list = await client.GetAsync("/api/public/items?pageSize=49&sort=invalid");
+        Assert.Equal(HttpStatusCode.BadRequest, list.StatusCode);
+        Assert.Equal("application/problem+json", list.Content.Headers.ContentType!.MediaType);
+        var id = Guid.NewGuid();
+        var cart = await client.PostAsJsonAsync("/api/public/cart/validate", new
+        {
+            Lines = new[] { new { ItemId = id, Quantity = 100 }, new { ItemId = id, Quantity = 1 } },
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, cart.StatusCode);
+        Assert.Equal("application/problem+json", cart.Content.Headers.ContentType!.MediaType);
+    }
+
+    [Fact]
+    public void Storefront_price_filters_support_either_bound_on_its_own()
+    {
+        var validator = new Application.Catalog.PublicItemQueryValidator();
+        Assert.True(validator.Validate(new Application.Catalog.PublicItemQuery(MaxPrice: 50)).IsValid);
+        Assert.True(validator.Validate(new Application.Catalog.PublicItemQuery(MinPrice: 25)).IsValid);
+        Assert.False(validator.Validate(new Application.Catalog.PublicItemQuery(MinPrice: 50, MaxPrice: 25)).IsValid);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("malformed-do-not-expose")]
@@ -101,7 +127,8 @@ public sealed class FoundationFactory(string? connection = null, string environm
         {
             ["ConnectionStrings:DefaultConnection"] = connection ?? "Host=127.0.0.1;Port=1;Database=unavailable;Username=test;Timeout=1;Pooling=false",
             ["Cors:Origins:0"] = "http://localhost:5173",
-            ["Cors:Origins:1"] = "http://localhost:5174"
+            ["Cors:Origins:1"] = "http://localhost:5174",
+            ["Jwt:SigningKey"] = "unit-test-signing-key-that-is-long-enough-0123456789"
         }));
         builder.ConfigureServices(services =>
         {

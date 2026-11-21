@@ -91,13 +91,14 @@ Set `PLAYWRIGHT_CHANNEL=msedge` to use installed Edge, or `chromium` and run `np
 
 ## Database changes
 
-There are **no production tables or migrations in Phase 0**. Audit/soft-delete behavior is proved using test-only entities. The first real schema is introduced by a later approved phase through EF Core migrations, not hand-written business DDL. Tool restore and migration instructions are in [configuration](docs/configuration.md).
+The schema includes catalogue, authentication and Phase 3 inventory migrations. Apply changes through EF Core migrations. Tool restore and migration instructions are in [configuration](docs/configuration.md); inventory workflows and verification are in [Phase 3 inventory](docs/phase3-inventory.md).
 
 ## Further reading
 
 - [Architecture](docs/architecture.md)
 - [Configuration and secrets](docs/configuration.md)
 - [Tests and limitations](docs/testing.md)
+- [Phase 3 inventory](docs/phase3-inventory.md)
 - [Foundation decisions](docs/decisions/0001-foundation.md)
 - [Approved Phase 0 plan](Plan/Phase0-Implementation-plan.md)
 - [Master requirements](Plan/Masterprompt.md)

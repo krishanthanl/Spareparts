@@ -62,3 +62,17 @@ Read Masterprompt.md first. Before coding, submit files, DB changes, endpoints, 
 - Customer confirmation/history and emails show delivery fees, non-GST treatment, credits and completed/pending refunds separately.
 - Tests include rural/unsupported addresses, stale delivery quotes, exact NZD cents and zero GST on goods/delivery, duplicate/partial/failed refunds, provider timeouts, ownership checks and no restock from financial refunds.
 
+
+## Review 2026-11-17: gaps found after Phases 0-2
+
+### Customer accounts must stay separate from staff
+- Reuse the Phase 1 Identity setup (`UserStore`, password hashing, lockout) with `UserType.Customer`, but give customers their own JWT audience (e.g. `spareparts-shop`), their own refresh cookie name and path, and never any staff permission. Staff policies must reject customer tokens, and customer endpoints must reject staff tokens. Test both directions.
+- Self-registration, email verification and **forgot password** need email tokens. Phase 1 did not add Identity token providers or ASP.NET Data Protection: add them here and **persist the Data Protection keys** (database or Blob Storage) so tokens survive restarts and work across instances.
+- Link a customer login to the Phase 4 `Customer` record. A guest checkout creates or matches a customer record by email without creating a login.
+
+### Missing items
+- **Bot and abuse protection** on registration, login, guest order tracking and checkout: rate limits as in Phase 1, and a privacy-friendly CAPTCHA only if abuse appears (needs approval).
+- **NZ Privacy Act 2020.** A privacy notice (owner-approved content), a way for customers to see and correct their details, a retention period for guest order data, and no card data stored, ever (hosted checkout only).
+- **Consumer law wording.** Terms, returns and refund pages must not remove Consumer Guarantees Act or Fair Trading Act rights; the content comes from the owner, not invented.
+- **Email deliverability.** Set up SPF, DKIM and DMARC for the sending domain and a reply-to address the shop reads; check that order emails do not land in spam.
+- **Pay-later order confirmations** must say clearly that the order is not paid yet, give the bank details and the reference to quote, and say when unpaid orders are cancelled.

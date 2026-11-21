@@ -176,7 +176,12 @@ button {
   }
   .sidebar nav {
     display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
     margin-top: 18px;
+  }
+  .sidebar nav a {
+    padding: 8px 10px;
   }
   .topbar {
     height: 56px;
@@ -201,4 +206,147 @@ button {
   .shop-details dd {
     margin-bottom: 16px;
   }
+}
+
+/* Catalogue */
+.thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+  background: #eef1f4;
+}
+.thumb-empty {
+  display: block;
+  background: repeating-linear-gradient(45deg, #eef1f4 0 6px, #e2e7ec 6px 12px);
+}
+.preview {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+}
+.mono {
+  font-family: Consolas, 'SFMono-Regular', monospace;
+}
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+.image-grid figure {
+  margin: 0;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.image-grid figure.primary {
+  border-color: #1976d2;
+}
+.image-grid img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+.image-grid figcaption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px;
+  font-size: 13px;
+}
+
+/* Phase 1: sign-in, account and permissions */
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.login-card {
+  width: min(100%, 420px);
+  padding: 32px;
+}
+.login-card .brand-mark {
+  margin-bottom: 12px;
+}
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+}
+.nav-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font: inherit;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #d4e1eb;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.75;
+  padding: 6px 12px;
+  text-align: left;
+}
+.nav-group-title:hover,
+.nav-group-title:focus-visible {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.06);
+}
+.nav-group-title:focus-visible {
+  outline: 2px solid #8fc1e3;
+  outline-offset: 1px;
+}
+.nav-chevron {
+  font-size: 0.9rem;
+}
+.nav-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.topbar-actions {
+  display: flex;
+  gap: 4px;
+}
+.muted {
+  opacity: 0.75;
+}
+.plain-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.permission-panel,
+.role-card {
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.permission-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+.permission-text {
+  flex: 1 1 220px;
+  display: flex;
+  flex-direction: column;
+}
+.permission-text span {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+.permission-group {
+  margin-top: 8px;
 }

@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 
 for (const app of [
-  { name: 'admin', port: 5173, heading: 'Shop workspace' },
   { name: 'public', port: 5174, heading: 'Vehicle spare parts' },
 ]) {
   test(
@@ -22,8 +21,6 @@ for (const app of [
           () => document.documentElement.scrollWidth <= window.innerWidth,
         ),
       ).toBe(true);
-      if (app.name === 'admin')
-        await expect(page.getByRole('status')).toHaveText('Connected');
       await page
         .getByRole('navigation')
         .getByRole('link', { name: 'Shop details' })
@@ -38,6 +35,29 @@ for (const app of [
     },
   );
 }
+
+test('admin opens on sign-in without browser errors', async ({
+  page,
+}, testInfo) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('http://localhost:5173/items');
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  await expect(page.getByRole('navigation')).toHaveCount(0);
+  await page.screenshot({
+    path: testInfo.outputPath('admin-sign-in.png'),
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  expect(
+    await page.evaluate(() => localStorage.length + sessionStorage.length),
+  ).toBe(0);
+  expect(errors).toEqual([]);
+});
 
 test('API serves health and safe unknown-route errors', async ({ request }) => {
   const live = await request.get('http://localhost:5080/health/live');

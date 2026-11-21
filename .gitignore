@@ -17,3 +17,10 @@ node_modules/
 *.trx
 playwright-report/
 test-results/
+DBMigrateScript.md
+/DBMigrateScript.txt
+/Plan/DBConString.md
+
+# Locally stored uploads (catalogue images)
+.data/
+Move-Apps-To-D.ps1

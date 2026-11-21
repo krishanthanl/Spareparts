@@ -47,12 +47,12 @@ public sealed class PostgresFoundationTests
             Assert.Equal("integration", item.CreatedBy);
             Assert.Equal(TimeSpan.Zero, item.CreatedAt.Offset);
             db.ChangeTracker.Clear();
-            var read = await db.Items.SingleAsync();
+            var read = await db.Probes.SingleAsync();
             Assert.Equal(12.34m, read.Amount);
             db.Remove(read);
             await db.SaveChangesAsync();
-            Assert.Empty(await db.Items.ToListAsync());
-            var deleted = await db.Items.IgnoreQueryFilters().SingleAsync();
+            Assert.Empty(await db.Probes.ToListAsync());
+            var deleted = await db.Probes.IgnoreQueryFilters().SingleAsync();
             Assert.True(deleted.IsDeleted);
             Assert.Equal("integration", deleted.DeletedBy);
             Assert.NotNull(deleted.DeletedAt);
@@ -71,9 +71,11 @@ public sealed class PostgresFoundationTests
 
 public sealed class IntegrationContext(DbContextOptions<IntegrationContext> options, string schema) : AppDbContext(options)
 {
-    public DbSet<TestItem> Items => Set<TestItem>();
+    public DbSet<TestItem> Probes => Set<TestItem>();
     protected override void OnModelCreating(ModelBuilder builder)
     {
+        // Keep every table, including the application model, inside the throwaway schema.
+        builder.HasDefaultSchema(schema);
         builder.Entity<TestItem>().ToTable("foundation_probe", schema).HasKey(x => x.Id);
         base.OnModelCreating(builder);
     }

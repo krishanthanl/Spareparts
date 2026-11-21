@@ -1,31 +1,10 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import { App } from './App';
+import { render, screen } from '@testing-library/react';
 import { AppProviders } from './providers/AppProviders';
 import { createApiClient } from './api/client';
 import { ApiStatus } from './components/ApiStatus';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import axios from 'axios';
 
-it('renders navigation and the shop setup without business features', () => {
-  render(
-    <MemoryRouter>
-      <AppProviders>
-        <App />
-      </AppProviders>
-    </MemoryRouter>,
-  );
-  expect(
-    screen.getByRole('heading', { name: 'Shop workspace' }),
-  ).toBeInTheDocument();
-  fireEvent.click(
-    within(screen.getByRole('navigation')).getByRole('link', {
-      name: 'Shop details',
-    }),
-  );
-  expect(screen.getByText('Not GST registered')).toBeInTheDocument();
-  expect(screen.getByText('Pacific/Auckland')).toBeInTheDocument();
-});
 it('shows a safe network error and offers retry', async () => {
   const client = createApiClient('http://localhost:5080');
   client.defaults.adapter = async () => {

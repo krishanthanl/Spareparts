@@ -74,3 +74,22 @@ Read Masterprompt.md first. Before coding, submit files, DB changes, endpoints, 
 - Proposed endpoints: /api/refunds, explicit approve/complete/cancel actions, refund detail/list and invoice credit/refund balance. Gateway execution is added in Phase 6.
 - Test delivery rates, unsupported zones, dispatch once, no-GST item/delivery totals and rejection of injected tax, partial credit rounding, concurrent over-refund, duplicate refund completion and unchanged historical invoices.
 
+
+## Review 2026-11-17: gaps found after Phases 0-2
+
+### Split this phase into two deliveries
+Phase 4 is the largest phase (orders, reservations, issue, payments, PDF, delivery, returns, credit notes, refunds). Propose, approve and deliver it in two parts so the shop can start selling sooner:
+- **4a: Sell and get paid.** Customers (lightweight), orders/invoices, reservations, stock issue, payments, numbering, invoice PDF, order list, daily takings report.
+- **4b: After the sale.** Delivery settings and shipments, returns, credit notes, manual refunds.
+
+### Missing items
+- **Daily takings / cash-up report.** Payments received per day in Pacific/Auckland time, split by method (cash, card, bank transfer), with invoice references, so the owner can reconcile the till and bank each day. Include refunds paid out that day.
+- **Invoice numbering.** Gapless and sequential per document type (e.g. `INV-000123`, `CN-000045`), allocated inside the posting transaction from a counter row locked `FOR UPDATE`. Drafts have no number. Cancelled invoices keep their number and are marked cancelled, never reused.
+- **Price override and discounts need permission.** Charging less than the current selling price, or any line or order discount, needs a new key (proposal: `sales.discount`) and a reason; the original price is kept on the line.
+- **More permission keys** to add to `PermissionKeys` and the seeded roles: `payments.record`, `sales.cancel`, `sales.discount`, `creditnotes.issue`. Enable the seeded Sales menus.
+- **Refund approval (decided in ADR 0003, D15).** Cashier and Admin can create refunds; only Admin approves and executes; nobody approves a refund they requested. Enforced on the server.
+- **One customer record, reused in Phase 6.** A single `Customer` table for phone and walk-in customers now; Phase 6 links an optional online login to the same record. Staff stay in `users` (`UserType.Staff`) and are never customers.
+- **Walk-in sale.** Allow an invoice with no customer record ("Cash sale") for counter sales; contact details optional.
+- **Reservation expiry for staff orders.** State whether staff-created reservations expire (proposal: no expiry, released on cancel) versus online ones (Phase 6, with expiry). A background job is only needed for expiring reservations.
+- **PDF library.** QuestPDF is free only under its Community licence revenue limit; confirm the shop qualifies or choose an MIT-licensed alternative before coding.
+- **Emailing invoices** needs `IEmailSender`, which arrives in Phase 6. Phase 4 produces the PDF for printing and download only; do not build email twice.
