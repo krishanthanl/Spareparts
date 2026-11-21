@@ -17,6 +17,7 @@ node_modules/
 *.trx
 playwright-report/
 test-results/
+DBMigrateScript.md
 
 # Locally stored uploads (catalogue images)
 .data/
