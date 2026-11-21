@@ -280,11 +280,39 @@ button {
   margin-top: 8px;
 }
 .nav-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font: inherit;
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  opacity: 0.7;
-  padding: 4px 12px;
+  color: #d4e1eb;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.75;
+  padding: 6px 12px;
+  text-align: left;
+}
+.nav-group-title:hover,
+.nav-group-title:focus-visible {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.06);
+}
+.nav-group-title:focus-visible {
+  outline: 2px solid #8fc1e3;
+  outline-offset: 1px;
+}
+.nav-chevron {
+  font-size: 0.9rem;
+}
+.nav-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .topbar-actions {
   display: flex;

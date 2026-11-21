@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { Link, NavLink, Route, Routes } from 'react-router-dom';
+import { Link, Route, Routes } from 'react-router-dom';
+import { SidebarMenu } from './components/SidebarMenu';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
@@ -15,7 +16,6 @@ import { AuthProvider } from './features/auth/AuthProvider';
 import { useAuth } from './features/auth/useAuth';
 import { ChangePasswordForm } from './features/auth/ChangePasswordForm';
 import { LoginPage } from './features/auth/LoginPage';
-import type { MenuNode } from './features/auth/session';
 import { RolesPage } from './features/users/RolesPage';
 import { UserPermissionsPage } from './features/users/UserPermissionsPage';
 import { UsersPage } from './features/users/UsersPage';
@@ -106,26 +106,6 @@ function RequirePermission({
   return can(permission) ? children : <Forbidden />;
 }
 
-function MenuLinks({ nodes }: { nodes: MenuNode[] }) {
-  return nodes.map((node) =>
-    node.path ? (
-      <NavLink key={node.key} end={node.path === '/'} to={node.path}>
-        {node.title}
-      </NavLink>
-    ) : (
-      <div
-        key={node.key}
-        className="nav-group"
-        role="group"
-        aria-label={node.title}
-      >
-        <span className="nav-group-title">{node.title}</span>
-        <MenuLinks nodes={node.children} />
-      </div>
-    ),
-  );
-}
-
 function Workspace() {
   const { state, logout } = useAuth();
   const [changing, setChanging] = useState(false);
@@ -144,9 +124,7 @@ function Workspace() {
           Spareparts
         </Link>
         <p className="sidebar-description">Shop administration</p>
-        <nav aria-label="Main navigation">
-          <MenuLinks nodes={menus} />
-        </nav>
+        <SidebarMenu menus={menus} />
         <p className="sidebar-foot">New Zealand shop</p>
       </Box>
       <Box className="admin-content">
