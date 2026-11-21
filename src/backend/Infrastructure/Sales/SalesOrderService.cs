@@ -43,6 +43,7 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         {
             var pattern = LikePattern(request.Q);
             query = query.Where(x => (x.InvoiceNumber != null && EF.Functions.ILike(x.InvoiceNumber, pattern, "\\"))
+                || (x.CheckoutKeyHash != null && x.Id.ToString() == request.Q!.Trim().ToLower())
                 || (x.CustomerName != null && EF.Functions.ILike(x.CustomerName, pattern, "\\"))
                 || (x.CustomerPhone != null && EF.Functions.ILike(x.CustomerPhone, pattern, "\\"))
                 || (x.CustomerCompany != null && EF.Functions.ILike(x.CustomerCompany, pattern, "\\")));
@@ -126,6 +127,7 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
     {
         var order = await db.SalesOrders.Include(x => x.Lines).SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw NotFound();
         if (order.Status != SalesOrderStatus.Draft) throw new ConflictException("Only drafts can be edited. A confirmed invoice is fixed.");
+        if (order.CheckoutKeyHash is not null) throw new ConflictException("Storefront orders keep the customer's accepted prices and contact details.");
         ExpectVersion(db, order, input.Version);
         foreach (var line in order.Lines.ToList()) { db.SalesOrderLines.Remove(line); order.Lines.Remove(line); }
         await ApplyAsync(order, input, canDiscount, ct);
@@ -153,6 +155,7 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var order = await LockOrderAsync(id, ct);
         if (order.Status is SalesOrderStatus.Confirmed or SalesOrderStatus.Completed) return await DtoAsync(id, ct); // already done
+        if (order.CheckoutKeyHash is not null) throw new ConflictException("Record the verified bank transfer to confirm this storefront order.");
         await ConfirmCoreAsync(order, ct);
         await StockLedger.CommitAsync(db, transaction, ct);
         return await DtoAsync(id, ct);
@@ -202,6 +205,14 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var order = await LockOrderAsync(id, ct);
         if (await ReplayedPaymentAsync(input.IdempotencyKey, id, ct)) return await DtoAsync(id, ct);
+        if (order.Status == SalesOrderStatus.Draft && order.CheckoutKeyHash is not null)
+        {
+            if (order.CheckoutHoldUntil <= DateTimeOffset.UtcNow)
+                throw new ConflictException("The stock hold expired. Reconcile any late transfer before taking further action.");
+            if (input.Method != PaymentMethod.BankTransfer || input.Amount != order.Total || string.IsNullOrWhiteSpace(input.Reference))
+                throw new ConflictException("Record the full bank transfer amount with its bank reference.");
+            await ConfirmCoreAsync(order, ct);
+        }
         await PayCoreAsync(order, input.Method, input.Amount, input.Reference, input.IdempotencyKey, ct);
         await CommitPaymentAsync(transaction, ct);
         return await DtoAsync(id, ct);
@@ -262,7 +273,7 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         if (order.Status != SalesOrderStatus.Draft) throw new ConflictException("Only drafts can be confirmed.");
         if (order.Lines.Count == 0) throw Invalid("Lines", "Add at least one item before confirming.");
         var ledger = new StockLedger(db);
-        await ledger.LockAsync(order.Lines.Select(x => x.ItemId), ct);
+        await ledger.LockAsync(order.Lines.Select(x => x.ItemId), ct, order.Id);
         foreach (var line in order.Lines.OrderBy(x => x.LineNo))
         {
             var p = ledger[line.ItemId];
@@ -407,7 +418,7 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         return new Built(built, priced, needsDiscount);
     }
 
-    private async Task ApplyAsync(SalesOrder order, OrderInput input, bool canDiscount, CancellationToken ct)
+    internal async Task ApplyAsync(SalesOrder order, OrderInput input, bool canDiscount, CancellationToken ct)
     {
         var built = await BuildLinesAsync(input, canDiscount, ct);
         Customer? customer = null;

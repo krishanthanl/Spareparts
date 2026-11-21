@@ -31,7 +31,7 @@ internal sealed class StockLedger(AppDbContext db)
 
     public IReadOnlyDictionary<Guid, ItemPosition> Positions => positions;
 
-    public async Task LockAsync(IEnumerable<Guid> itemIds, CancellationToken ct)
+    public async Task LockAsync(IEnumerable<Guid> itemIds, CancellationToken ct, Guid? excludeOrderId = null)
     {
         var ids = itemIds.Distinct().ToArray();
         if (db.Database.CurrentTransaction is null) throw new InvalidOperationException("Stock postings need a transaction.");
@@ -47,7 +47,7 @@ internal sealed class StockLedger(AppDbContext db)
                 Average = g.OrderByDescending(m => m.Sequence).Select(m => m.AverageCostAfter).First(),
             }).ToListAsync(ct);
         var prices = await CurrentPrices(db, ids).ToListAsync(ct);
-        var reserved = await Reservations(db, ids).ToDictionaryAsync(x => x.ItemId, x => x.Quantity, ct);
+        var reserved = await Reservations(db, ids, excludeOrderId).ToDictionaryAsync(x => x.ItemId, x => x.Quantity, ct);
         foreach (var item in items)
         {
             var s = stock.SingleOrDefault(x => x.ItemId == item.Id);
@@ -130,11 +130,12 @@ internal sealed class StockLedger(AppDbContext db)
     /// Reserved quantity per item: what confirmed orders still have to issue. Derived, never stored, so it
     /// cannot drift; postings read it under the same item locks that guard on-hand.
     /// </summary>
-    public static IQueryable<ReservedQuantity> Reservations(AppDbContext db, IReadOnlyCollection<Guid>? ids = null) =>
+    public static IQueryable<ReservedQuantity> Reservations(AppDbContext db, IReadOnlyCollection<Guid>? ids = null, Guid? excludeOrderId = null) =>
         db.SalesOrderLines
             .Where(l => ids == null || ids.Contains(l.ItemId))
-            .Where(l => db.SalesOrders.Any(o => o.Id == l.OrderId
-                && (o.Status == Domain.Sales.SalesOrderStatus.Confirmed || o.Status == Domain.Sales.SalesOrderStatus.Completed)))
+            .Where(l => l.OrderId != excludeOrderId && db.SalesOrders.Any(o => o.Id == l.OrderId
+                && (o.Status == Domain.Sales.SalesOrderStatus.Confirmed || o.Status == Domain.Sales.SalesOrderStatus.Completed
+                    || (o.Status == Domain.Sales.SalesOrderStatus.Draft && o.CheckoutHoldUntil > DateTimeOffset.UtcNow))))
             .Select(l => new { l.ItemId, Open = l.Quantity - (db.StockIssueLines.Where(i => i.OrderLineId == l.Id).Sum(i => (decimal?)i.Quantity) ?? 0) })
             .Where(x => x.Open > 0)
             .GroupBy(x => x.ItemId)

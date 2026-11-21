@@ -12,6 +12,11 @@ const PartPage = lazy(() =>
 const CartPage = lazy(() =>
   import('./components/CartPage').then((m) => ({ default: m.CartPage })),
 );
+const CheckoutPage = lazy(() =>
+  import('./components/CheckoutPage').then((m) => ({
+    default: m.CheckoutPage,
+  })),
+);
 const CartDrawer = lazy(() =>
   import('./components/CartPage').then((m) => ({ default: m.CartDrawer })),
 );
@@ -28,18 +33,21 @@ function StoreMetadata() {
       document.getElementById('contact')?.scrollIntoView();
   }, [pathname, hash]);
   const detail = /^\/parts\/[^/]+$/.test(pathname);
+  const privatePage = pathname === '/cart' || pathname === '/checkout';
   const title =
     pathname === '/parts'
       ? 'Browse parts'
-      : pathname === '/cart'
-        ? 'Your cart'
-        : pathname === '/shop-details'
-          ? 'Shop details'
-          : pathname === '/delivery-and-returns'
-            ? 'Delivery and returns'
-            : pathname === '/'
-              ? 'Vehicle spare parts'
-              : 'Page not found';
+      : pathname === '/checkout'
+        ? 'Checkout'
+        : pathname === '/cart'
+          ? 'Your cart'
+          : pathname === '/shop-details'
+            ? 'Shop details'
+            : pathname === '/delivery-and-returns'
+              ? 'Delivery and returns'
+              : pathname === '/'
+                ? 'Vehicle spare parts'
+                : 'Page not found';
   return (
     <>
       {!detail && <title>{`${title} | Spareparts NZ`}</title>}
@@ -49,13 +57,13 @@ function StoreMetadata() {
           content="Browse vehicle spare parts by make, model and year at Spareparts NZ."
         />
       )}
-      {pathname !== '/cart' && (
+      {!privatePage && (
         <link
           rel="canonical"
           href={new URL(pathname, window.location.origin).href}
         />
       )}
-      {pathname === '/cart' && <meta name="robots" content="noindex" />}
+      {privatePage && <meta name="robots" content="noindex" />}
     </>
   );
 }
@@ -129,6 +137,7 @@ export function App() {
             <Route path="/parts" element={<CatalogPage />} />
             <Route path="/parts/:id" element={<PartPage />} />
             <Route path="/cart" element={<CartPage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/delivery-and-returns" element={<DeliveryReturns />} />
             <Route path="/shop-details" element={<ShopDetails />} />
             <Route

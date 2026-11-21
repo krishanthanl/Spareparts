@@ -40,6 +40,10 @@ public sealed class SalesOrderConfiguration : IEntityTypeConfiguration<SalesOrde
                 "\"Total\" = \"Subtotal\" - \"LineDiscountTotal\" - \"OrderDiscount\" + \"DeliveryCharge\"");
         });
         builder.Property(x => x.InvoiceNumber).HasMaxLength(20);
+        builder.Property(x => x.CheckoutKeyHash).HasMaxLength(64);
+        builder.Property(x => x.CheckoutRequestHash).HasMaxLength(64);
+        builder.HasIndex(x => x.CheckoutKeyHash).IsUnique();
+        builder.HasIndex(x => x.CheckoutHoldUntil).HasFilter("\"Status\" = 1 AND \"CheckoutHoldUntil\" IS NOT NULL");
         builder.Property(x => x.CustomerName).HasMaxLength(200);
         builder.Property(x => x.CustomerPhone).HasMaxLength(50);
         builder.Property(x => x.CustomerEmail).HasMaxLength(200);

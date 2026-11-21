@@ -81,6 +81,9 @@ public sealed class Customer : AuditableEntity
 /// </summary>
 public sealed class SalesOrder : AuditableEntity
 {
+    public string? CheckoutKeyHash { get; set; }
+    public string? CheckoutRequestHash { get; set; }
+    public DateTimeOffset? CheckoutHoldUntil { get; set; }
     public string? InvoiceNumber { get; set; }
     public SalesSource Source { get; set; } = SalesSource.Counter;
     public SalesOrderStatus Status { get; set; } = SalesOrderStatus.Draft;
