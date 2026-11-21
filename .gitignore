@@ -18,6 +18,8 @@ node_modules/
 playwright-report/
 test-results/
 DBMigrateScript.md
+/DBMigrateScript.txt
+/Plan/DBConString.md
 
 # Locally stored uploads (catalogue images)
 .data/

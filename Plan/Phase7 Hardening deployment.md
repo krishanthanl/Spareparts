@@ -56,7 +56,7 @@ Read Masterprompt.md first. Before coding, submit files, DB changes, endpoints, 
 ### Source control and CI (the repository is now on GitHub)
 - Create a `main` branch and make it the default; merge phase branches through pull requests. Protect `main`: no force pushes, CI must pass.
 - GitHub Actions: backend build and tests, both frontends (typecheck, lint, format, Vitest, build), Playwright smoke tests, and the PostgreSQL integration tests against a PostgreSQL service container. Docker is available on GitHub runners, so the currently skipped tests finally run on every push.
-- Turn on secret scanning. **Release blocker:** `Plan/DBConString.md` contains a plain-text "Super Admin Pass" that is in the GitHub history. No real account may use that password; if one did, change it. If the repository is or becomes public, treat the password as leaked. Keep such notes in a password manager.
+- Turn on secret scanning. **Release blocker.** Rotate or revoke any live credentials previously committed to Git. Store credentials in a password manager, application settings, or a secret store.
 
 ### Things Phase 1 left for production
 - **JWT signing key** comes from Key Vault or app settings. Support rotation: sign with the new key while still accepting the previous one for one access-token lifetime (the key id is currently fixed as `spareparts-1`).
