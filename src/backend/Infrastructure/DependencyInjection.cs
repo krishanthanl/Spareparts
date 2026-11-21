@@ -30,7 +30,11 @@ public static class DependencyInjection
         services.AddScoped<IStockQueryService, StockQueryService>();
         services.AddScoped<IPriceService, PriceService>();
         services.AddScoped<Application.Sales.ICustomerService, Sales.CustomerService>();
-        services.AddScoped<Application.Sales.ISalesOrderService, Sales.SalesOrderService>();
+        services.AddScoped<Sales.SalesOrderService>();
+        services.AddScoped<Application.Sales.ISalesOrderService>(sp => sp.GetRequiredService<Sales.SalesOrderService>());
+        services.AddScoped<Sales.DeliveryService>();
+        services.AddScoped<Application.Sales.IDeliveryService>(sp => sp.GetRequiredService<Sales.DeliveryService>());
+        services.AddScoped<Application.Sales.IAfterSaleService, Sales.AfterSaleService>();
         services.AddScoped<Application.Sales.ITakingsReportService, Sales.TakingsReportService>();
         services.AddScoped<Application.Sales.IInvoicePdfService, Sales.InvoicePdfRenderer>();
         services.TryAddSingleton(new Application.Sales.ShopSettings());

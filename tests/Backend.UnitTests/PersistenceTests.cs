@@ -18,7 +18,7 @@ public sealed class PersistenceTests
         Assert.Contains("IsDeleted", db.Probes.ToQueryString());
         Assert.Contains("NOT", db.Probes.ToQueryString());
         var production = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql("Host=localhost;Database=test").Options).Model.GetEntityTypes().Select(x => x.ClrType.Name).Order().ToArray();
-        Assert.Equal(["Category", "Customer", "DocumentCounter", "Grn", "GrnLine", "Item", "ItemFitment", "ItemImage", "ItemPriceHistory", "Menu", "Payment", "PermissionSeed", "RefreshToken", "Role", "RolePermission", "SalesOrder", "SalesOrderLine", "SecurityEvent", "StockDocument", "StockDocumentLine", "StockIssue", "StockIssueLine", "StockMovement", "Stocktake", "StocktakeLine", "User", "UserPermissionOverride", "UserRole", "VehicleMake", "VehicleModel"], production);
+        Assert.Equal(["Category", "CreditNote", "CreditNoteLine", "Customer", "DeliverySettings", "DeliveryZone", "DeliveryZonePostcode", "DocumentCounter", "Grn", "GrnLine", "Item", "ItemFitment", "ItemImage", "ItemPriceHistory", "Menu", "Payment", "PermissionSeed", "RefreshToken", "Refund", "RefundAllocation", "Role", "RolePermission", "SalesOrder", "SalesOrderLine", "SalesReturn", "SalesReturnLine", "SecurityEvent", "Shipment", "ShipmentLine", "StockDocument", "StockDocumentLine", "StockIssue", "StockIssueLine", "StockMovement", "Stocktake", "StocktakeLine", "User", "UserPermissionOverride", "UserRole", "VehicleMake", "VehicleModel"], production);
     }
 
     [Fact]
