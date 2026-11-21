@@ -88,3 +88,25 @@ After applying migrations, create the first administrator once, in your own term
 ```
 
 It reads the same user-secrets connection as the API, asks for the password without echoing it (or reads `BOOTSTRAP_PASSWORD`), seeds roles and menus, and refuses to run if an active SuperAdmin already exists. Add other staff from the admin app (Users).
+
+## Error reporting (Sentry)
+
+The API can send unexpected errors to [Sentry](https://sentry.io). It is off unless a DSN is configured, so local runs and tests send nothing.
+
+| Azure App Service setting | Value |
+|---|---|
+| `Sentry__Dsn` | The DSN of your Sentry ASP.NET Core project (Project Settings, Client Keys). Remove it to switch reporting off. |
+| `Sentry__Environment` | Optional, e.g. `production`. Defaults to the hosting environment name. |
+| `Sentry__Release` | Optional, e.g. the git commit, to see which deployment introduced an error. |
+
+What is sent:
+- Request failures that return HTTP 500, with the stack trace and the `correlation_id` tag shown in the error response, so you can match a report to the API log.
+- Errors logged outside a request (background workers), with recent log lines as breadcrumbs.
+
+What is never sent:
+- Validation (400), sign-in (401), permission (403), not found (404), conflict (409) and rate-limit (429) responses.
+- IP addresses, cookies, headers (including the sign-in token), query strings or request bodies. The user is identified by id only.
+
+The exception message itself is sent. Keep Sentry's server-side data scrubbing on (Project Settings, Security & Privacy) as a second guard.
+
+After deploying with a DSN, check it works: signed in as an admin, send `POST /api/diagnostics/sentry-test`. It answers 500 and a `SentryTestException` appears in Sentry within a minute. You can resolve it there. Without a DSN the endpoint answers 409.
