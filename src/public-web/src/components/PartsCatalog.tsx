@@ -1,5 +1,72 @@
+import { useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { mediaUrl, publicCatalog, type PublicCategory } from '../api/catalog';
+import { isAxiosError } from 'axios';
+import { Link } from 'react-router-dom';
+import {
+  mediaUrl,
+  publicCatalog,
+  type PartsFilters,
+  type PublicCategory,
+  type PublicItem,
+} from '../api/catalog';
+import { availabilityLabel, formatMoney } from '../lib/shop';
+
+export function PartPhoto({
+  path,
+  alt,
+  width = 480,
+  height = 360,
+  eager = false,
+}: {
+  path: string | null;
+  alt: string;
+  width?: number;
+  height?: number;
+  eager?: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (!path || failed)
+    return <span className="photo-placeholder">No photo available</span>;
+  return (
+    <img
+      src={mediaUrl(path)}
+      alt={alt}
+      width={width}
+      height={height}
+      loading={eager ? 'eager' : 'lazy'}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+export function PartCard({ item }: { item: PublicItem }) {
+  return (
+    <li className="part-card">
+      <div className="part-image">
+        <PartPhoto
+          key={item.thumbnailUrl}
+          path={item.thumbnailUrl}
+          alt={item.name}
+        />
+      </div>
+      <div className="part-body">
+        <span className="part-meta">
+          {item.categoryName} · <span className="sku">{item.sku}</span>
+        </span>
+        <h3>
+          <Link to={`/parts/${item.id}`}>{item.name}</Link>
+        </h3>
+        {item.partBrand && <p className="part-brand">{item.partBrand}</p>}
+        <p className="part-price">
+          {item.price == null ? 'Ask for price' : formatMoney(item.price)}
+        </p>
+        <span className="stock-label" data-stock={item.availability}>
+          {availabilityLabel[item.availability]}
+        </span>
+      </div>
+    </li>
+  );
+}
 
 export function CategoryGrid({
   categories,
@@ -45,22 +112,30 @@ export function PartsGrid({
   q,
   categories,
   onCategory,
+  filters,
+  page = 1,
+  onPage,
 }: {
   category: string;
   q: string;
   categories: PublicCategory[];
   onCategory: (slug: string) => void;
+  filters?: PartsFilters;
+  page?: number;
+  onPage?: (value: number) => void;
 }) {
   const parts = useInfiniteQuery({
-    queryKey: ['public-items', category, q],
-    queryFn: ({ pageParam }) =>
-      publicCatalog.items({ category, q, page: pageParam }),
-    initialPageParam: 1,
+    queryKey: ['public-items', category, q, filters, page],
+    queryFn: ({ pageParam, signal }) =>
+      publicCatalog.items({ category, q, ...filters, page: pageParam }, signal),
+    initialPageParam: page,
     getNextPageParam: (last) =>
       last.page * last.pageSize < last.totalCount ? last.page + 1 : undefined,
   });
   const items = parts.data?.pages.flatMap((p) => p.items) ?? [];
   const total = parts.data?.pages[0]?.totalCount ?? 0;
+  const invalidFilters =
+    isAxiosError(parts.error) && parts.error.response?.status === 400;
   const label = categories.find((c) => c.slug === category)?.name;
 
   return (
@@ -106,16 +181,19 @@ export function PartsGrid({
       {parts.isError && (
         <div className="parts-empty">
           <p>
-            The parts list is offline. Call or email the counter and we’ll check
-            stock for you.
+            {invalidFilters
+              ? 'The search filters are invalid. Change or clear the filters to try again.'
+              : 'The parts list is offline. Call or email the counter and we’ll check stock for you.'}
           </p>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => void parts.refetch()}
-          >
-            Try again
-          </button>
+          {!invalidFilters && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => void parts.refetch()}
+            >
+              Try again
+            </button>
+          )}
         </div>
       )}
       {parts.isSuccess && items.length === 0 && (
@@ -129,37 +207,25 @@ export function PartsGrid({
       {items.length > 0 && (
         <ul className="parts-grid">
           {items.map((item) => (
-            <li key={item.id} className="part-card">
-              <div className="part-image">
-                {item.thumbnailUrl ? (
-                  <img
-                    src={mediaUrl(item.thumbnailUrl)}
-                    alt={item.name}
-                    loading="lazy"
-                    width={480}
-                    height={360}
-                  />
-                ) : (
-                  <span aria-hidden="true">No photo</span>
-                )}
-              </div>
-              <div className="part-body">
-                <span className="part-meta">
-                  {item.categoryName} · <span className="sku">{item.sku}</span>
-                </span>
-                <h3>{item.name}</h3>
-                {item.partBrand && (
-                  <p className="part-brand">{item.partBrand}</p>
-                )}
-                {item.description && (
-                  <p className="part-desc">{item.description}</p>
-                )}
-              </div>
-            </li>
+            <PartCard key={item.id} item={item} />
           ))}
         </ul>
       )}
-      {parts.hasNextPage && (
+      {onPage && (page > 1 || parts.hasNextPage) && (
+        <nav className="parts-more pagination" aria-label="Parts pages">
+          <button disabled={page <= 1} onClick={() => onPage(page - 1)}>
+            Previous
+          </button>
+          <span>Page {page}</span>
+          <button
+            disabled={!parts.hasNextPage}
+            onClick={() => onPage(page + 1)}
+          >
+            Next
+          </button>
+        </nav>
+      )}
+      {!onPage && parts.hasNextPage && (
         <div className="parts-more">
           <button
             type="button"
