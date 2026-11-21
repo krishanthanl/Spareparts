@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Button from '@mui/material/Button';
+import Autocomplete from '@mui/material/Autocomplete';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -21,6 +22,7 @@ import Typography from '@mui/material/Typography';
 import { describeError, fieldError, type ApiProblem } from '../../api/problems';
 import { formatMoney, formatShopDate } from '../../lib/shop';
 import { ProblemAlert } from '../catalog/ProblemAlert';
+import { catalogApi, type Category } from '../catalog/api';
 import { useAuth } from '../auth/useAuth';
 import {
   formatQty,
@@ -54,9 +56,16 @@ export function StockReportPage() {
   const [sort, setSort] = useState('name');
   const [onlyInStock, setOnlyInStock] = useState(false);
   const [page, setPage] = useState(1);
+  const [category, setCategory] = useState<Category | null>(null);
+  const [categorySearch, setCategorySearch] = useState('');
+  const categories = useQuery({
+    queryKey: ['stock-categories', categorySearch],
+    queryFn: () => catalogApi.categories({ q: categorySearch, pageSize: 100 }),
+    enabled: categorySearch.trim().length > 0,
+  });
   const isToday = date === today;
   const report = useQuery({
-    queryKey: ['stock', date, q, sort, onlyInStock, page],
+    queryKey: ['stock', date, q, sort, onlyInStock, page, category?.id],
     queryFn: () =>
       inventoryApi.stock({
         date: isToday ? undefined : date,
@@ -64,6 +73,7 @@ export function StockReportPage() {
         sort,
         onlyInStock,
         page,
+        categoryId: category?.id,
       }),
   });
   const data = report.data;
@@ -107,6 +117,32 @@ export function StockReportPage() {
             setPage(1);
           }}
         />
+        <Autocomplete
+          size="small"
+          sx={{ minWidth: 200 }}
+          options={categories.data?.items ?? []}
+          value={category}
+          inputValue={categorySearch}
+          onInputChange={(_, text, reason) => {
+            if (reason === 'input' || reason === 'clear')
+              setCategorySearch(text);
+          }}
+          onChange={(_, next) => {
+            setCategory(next);
+            setCategorySearch(next?.name ?? '');
+            setPage(1);
+          }}
+          getOptionLabel={(option) => option.name}
+          isOptionEqualToValue={(option, selected) => option.id === selected.id}
+          filterOptions={(options) => options}
+          loading={categories.isFetching}
+          noOptionsText={
+            categories.isError
+              ? 'Could not load categories'
+              : 'Type a category name'
+          }
+          renderInput={(params) => <TextField {...params} label="Category" />}
+        />
         <TextField
           size="small"
           select
@@ -149,6 +185,7 @@ export function StockReportPage() {
               <TableCell>Name</TableCell>
               <TableCell>Category</TableCell>
               <TableCell align="right">On hand</TableCell>
+              <TableCell align="right">Reserved</TableCell>
               <TableCell align="right">Average cost</TableCell>
               <TableCell align="right">Value</TableCell>
               <TableCell align="right">Selling price</TableCell>
@@ -163,6 +200,9 @@ export function StockReportPage() {
                 <TableCell>{r.name}</TableCell>
                 <TableCell>{r.categoryName}</TableCell>
                 <TableCell align="right">{formatQty(r.onHand)}</TableCell>
+                <TableCell align="right">
+                  {r.reserved ? formatQty(r.reserved) : '—'}
+                </TableCell>
                 <TableCell align="right">
                   {formatMoney(r.averageCost)}
                 </TableCell>

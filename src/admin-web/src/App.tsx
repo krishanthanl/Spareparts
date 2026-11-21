@@ -33,6 +33,12 @@ import {
   StockCardPage,
   StockReportPage,
 } from './features/inventory/StockPages';
+import { OrderListPage, OrderPage } from './features/sales/OrderPages';
+import {
+  CustomersPage,
+  DailyTakingsPage,
+  QuickSalePage,
+} from './features/sales/SalesPages';
 
 function ShopDetails() {
   return (
@@ -287,6 +293,46 @@ function Workspace() {
               element={
                 <RequirePermission permission="inventory.reports">
                   <StockCardPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/sales/invoices"
+              element={
+                <RequirePermission permission="sales.invoice">
+                  <OrderListPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/sales/invoices/:id"
+              element={
+                <RequirePermission permission="sales.invoice">
+                  <OrderPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/sales/quick-sale"
+              element={
+                <RequirePermission permission="payments.record">
+                  <QuickSalePage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/sales/customers"
+              element={
+                <RequirePermission permission="sales.invoice">
+                  <CustomersPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/sales/takings"
+              element={
+                <RequirePermission permission="sales.reports">
+                  <DailyTakingsPage />
                 </RequirePermission>
               }
             />

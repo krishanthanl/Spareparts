@@ -18,12 +18,13 @@ import { formatShopDate } from '../../lib/shop';
 import { ProblemAlert } from '../catalog/ProblemAlert';
 import { useConfirm } from '../catalog/useConfirm';
 import { formatQty, inventoryApi, parseNumber, type Stocktake } from './api';
-import { ItemPicker, StatusChip } from './components';
+import { DocumentPagination, ItemPicker, StatusChip } from './components';
 
 export function StocktakeListPage() {
+  const [page, setPage] = useState(1);
   const list = useQuery({
-    queryKey: ['stocktakes'],
-    queryFn: () => inventoryApi.stocktakes({}),
+    queryKey: ['stocktakes', page],
+    queryFn: () => inventoryApi.stocktakes({ page, pageSize: 25 }),
   });
   return (
     <>
@@ -84,6 +85,11 @@ export function StocktakeListPage() {
           </TableBody>
         </Table>
       </TableContainer>
+      <DocumentPagination
+        page={page}
+        total={list.data?.totalCount ?? 0}
+        onPageChange={setPage}
+      />
     </>
   );
 }

@@ -176,6 +176,8 @@ export type StockRow = {
   sellingPrice: number | null;
   averageCost: number;
   stockValue: number;
+  reserved: number;
+  available: number;
 };
 export type StockReport = {
   asOfUtc: string | null;
@@ -230,7 +232,12 @@ const clean = (params: Record<string, unknown>) =>
     ),
   );
 
-type ListParams = { page?: number; q?: string; status?: DocumentStatus };
+type ListParams = {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  status?: DocumentStatus;
+};
 const base = (kind: DocumentKind) =>
   kind === 'Opening' ? '/api/opening-stock' : '/api/stock-adjustments';
 

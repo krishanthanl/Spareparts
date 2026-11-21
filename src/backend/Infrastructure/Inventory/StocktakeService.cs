@@ -19,7 +19,15 @@ public sealed class StocktakeService(AppDbContext db, ICurrentActor actor, TimeP
             var pattern = LikePattern(request.Q);
             query = query.Where(x => (x.Number != null && EF.Functions.ILike(x.Number, pattern, "\\")) || (x.Notes != null && EF.Functions.ILike(x.Notes, pattern, "\\")));
         }
-        query = request.Sort is "updatedAt" ? query.OrderBy(x => x.UpdatedAt) : query.OrderByDescending(x => x.UpdatedAt);
+        query = (request.Sort switch
+        {
+            "updatedAt" => query.OrderBy(x => x.UpdatedAt),
+            "postedAt" => query.OrderBy(x => x.PostedAt),
+            "-postedAt" => query.OrderByDescending(x => x.PostedAt),
+            "number" => query.OrderBy(x => x.Number),
+            "-number" => query.OrderByDescending(x => x.Number),
+            _ => query.OrderByDescending(x => x.UpdatedAt),
+        }).ThenBy(x => x.Id);
         var total = await query.CountAsync(ct);
         var rows = await query.Skip((request.Page - 1) * request.PageSize).Take(request.PageSize)
             .Select(x => new StocktakeSummaryDto(x.Id, x.Number, x.Status, x.Lines.Count, x.StartedAt, x.PostedAt)).ToListAsync(ct);
