@@ -50,7 +50,7 @@ public sealed record StocktakeSummaryDto(Guid Id, string? Number, DocumentStatus
 public sealed record StockRequest(int Page = 1, int PageSize = 50, string? Q = null, Guid? CategoryId = null,
     DateOnly? Date = null, DateTimeOffset? AsOf = null, string? Sort = null, bool OnlyInStock = false);
 public sealed record StockRow(Guid ItemId, string Sku, string Name, string CategoryName, decimal OnHand, int? ReorderLevel, int? ReorderQuantity,
-    decimal? SellingPrice, decimal AverageCost, decimal StockValue);
+    decimal? SellingPrice, decimal AverageCost, decimal StockValue, decimal Reserved = 0, decimal Available = 0);
 public sealed record StockReport(DateTimeOffset? AsOfUtc, decimal TotalUnits, decimal TotalValue, PagedResult<StockRow> Items);
 public sealed record StockCardRow(long Sequence, DateTimeOffset OccurredAt, MovementType MovementType, decimal QtyChange, decimal Balance,
     decimal UnitCost, decimal AverageCostAfter, string RefType, Guid RefId, string? DocumentNumber, string CreatedBy);

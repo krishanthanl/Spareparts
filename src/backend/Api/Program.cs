@@ -54,6 +54,7 @@ builder.Services.AddDbContext<AppDbContext>((services, options) => options
 var storageSettings = builder.Configuration.GetSection("Storage").Get<StorageSettings>() ?? new StorageSettings();
 storageSettings.LocalRoot = Path.GetFullPath(storageSettings.LocalRoot, builder.Environment.ContentRootPath);
 builder.Services.AddCatalogInfrastructure(storageSettings);
+builder.Services.AddSingleton(builder.Configuration.GetSection(Application.Sales.ShopSettings.SectionName).Get<Application.Sales.ShopSettings>() ?? new Application.Sales.ShopSettings());
 var allowEphemeralKey = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing");
 var ephemeralKey = JwtSettings.EphemeralKey();
 builder.Services.AddOptions<JwtSettings>().BindConfiguration("Jwt")

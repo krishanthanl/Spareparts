@@ -33,6 +33,12 @@ public class AppDbContext(DbContextOptions options) : DbContext(options)
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<ItemPriceHistory> ItemPriceHistory => Set<ItemPriceHistory>();
     public DbSet<DocumentCounter> DocumentCounters => Set<DocumentCounter>();
+    public DbSet<Domain.Sales.Customer> Customers => Set<Domain.Sales.Customer>();
+    public DbSet<Domain.Sales.SalesOrder> SalesOrders => Set<Domain.Sales.SalesOrder>();
+    public DbSet<Domain.Sales.SalesOrderLine> SalesOrderLines => Set<Domain.Sales.SalesOrderLine>();
+    public DbSet<Domain.Sales.StockIssue> StockIssues => Set<Domain.Sales.StockIssue>();
+    public DbSet<Domain.Sales.StockIssueLine> StockIssueLines => Set<Domain.Sales.StockIssueLine>();
+    public DbSet<Domain.Sales.Payment> Payments => Set<Domain.Sales.Payment>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
