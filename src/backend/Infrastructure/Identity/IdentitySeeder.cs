@@ -20,8 +20,8 @@ public sealed class IdentitySeeder(AppDbContext db, TimeProvider clock)
     [
         new(Role.SuperAdmin, "Full access. Can manage other SuperAdmins.", []),
         new(Role.Admin, "Runs the shop system. Everything except managing SuperAdmins.", P.All.Select(x => x.Key).ToArray()),
-        new(Role.StoreKeeper, "Catalogue and stock.", [P.DashboardView, P.CatalogManage, P.InventoryGrn, P.InventoryAdjust, P.InventoryReports, P.FulfillmentUpdate]),
-        new(Role.Cashier, "Sales and returns.", [P.DashboardView, P.SalesInvoice, P.SalesReturn, P.RefundsCreate]),
+        new(Role.StoreKeeper, "Catalogue and stock.", [P.DashboardView, P.CatalogManage, P.InventoryGrn, P.InventoryAdjust, P.InventoryReports, P.FulfillmentUpdate, P.SalesIssue]),
+        new(Role.Cashier, "Sales and returns.", [P.DashboardView, P.SalesInvoice, P.SalesReturn, P.RefundsCreate, P.SalesIssue, P.PaymentsRecord, P.SalesReports, P.CustomersManage]),
     ];
 
     // Parents come before children. Menus for later phases are seeded switched off.
@@ -39,8 +39,11 @@ public sealed class IdentitySeeder(AppDbContext db, TimeProvider clock)
         new("inventory.stocktakes", "inventory", "Stocktake", "/inventory/stocktakes", null, 40, P.InventoryAdjust),
         new("inventory.stock", "inventory", "Stock report", "/inventory/stock", null, 50, P.InventoryReports),
         new("inventory.low", "inventory", "Low stock", "/inventory/low-stock", null, 60, P.InventoryReports),
-        new("sales", null, "Sales", null, "point_of_sale", 40, null, Enabled: false),
-        new("sales.invoices", "sales", "Invoices", "/sales/invoices", null, 10, P.SalesInvoice, Enabled: false),
+        new("sales", null, "Sales", null, "point_of_sale", 40, null),
+        new("sales.quick", "sales", "Counter sale", "/sales/quick-sale", null, 5, P.PaymentsRecord),
+        new("sales.invoices", "sales", "Orders and invoices", "/sales/invoices", null, 10, P.SalesInvoice),
+        new("sales.customers", "sales", "Customers", "/sales/customers", null, 30, P.SalesInvoice),
+        new("sales.takings", "sales", "Daily takings", "/sales/takings", null, 40, P.SalesReports),
         new("sales.returns", "sales", "Returns", "/sales/returns", null, 20, P.SalesReturn, Enabled: false),
         new("admin", null, "Administration", null, "admin_panel_settings", 90, null),
         new("admin.users", "admin", "Users", "/users", null, 10, P.UsersView),

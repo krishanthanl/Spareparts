@@ -1,4 +1,10 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  within,
+  waitFor,
+} from '@testing-library/react';
 import {
   AxiosError,
   type AxiosResponse,
@@ -7,9 +13,10 @@ import {
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AppProviders } from '../../providers/AppProviders';
 import { apiClient } from '../../api/client';
-import { GrnEditPage } from './GrnPages';
+import { GrnEditPage, GrnListPage } from './GrnPages';
 import { StockReportPage, StockCardPage } from './StockPages';
-import { StocktakeEditPage } from './StocktakePages';
+import { StocktakeEditPage, StocktakeListPage } from './StocktakePages';
+import { StockDocumentListPage } from './StockDocumentPages';
 import { formatQty, parseNumber, shopToday } from './api';
 import { AuthContext } from '../auth/useAuth';
 
@@ -102,6 +109,62 @@ const grn = {
   ],
 };
 
+it.each([
+  ['/inventory/grn', '/api/grns', <GrnListPage />],
+  [
+    '/inventory/adjustments',
+    '/api/stock-adjustments',
+    <StockDocumentListPage kind="Adjustment" />,
+  ],
+  [
+    '/inventory/opening',
+    '/api/opening-stock',
+    <StockDocumentListPage kind="Opening" />,
+  ],
+  ['/inventory/stocktakes', '/api/stocktakes', <StocktakeListPage />],
+])('can reach older documents on %s', async (path, url, element) => {
+  handler = () => ({
+    status: 200,
+    data: { items: [], page: 1, pageSize: 25, totalCount: 51 },
+  });
+  renderAt(path, path, element);
+  const next = await screen.findByRole('button', { name: 'Go to next page' });
+  await waitFor(() => expect(next).toBeEnabled());
+  fireEvent.click(next);
+  await screen.findByText('26–50 of 51');
+  expect(calls.some((c) => c.url === url && c.params?.page === 2)).toBe(true);
+});
+
+it('starts opening stock on its own first page after browsing older adjustments', async () => {
+  handler = ({ url }) => ({
+    status: 200,
+    data: {
+      items: [],
+      page: 1,
+      pageSize: 25,
+      totalCount: url === '/api/stock-adjustments' ? 51 : 1,
+    },
+  });
+  const wrap = (kind: 'Adjustment' | 'Opening') => (
+    <MemoryRouter>
+      <AppProviders>
+        <StockDocumentListPage kind={kind} />
+      </AppProviders>
+    </MemoryRouter>
+  );
+  const view = render(wrap('Adjustment'));
+  const next = await screen.findByRole('button', { name: 'Go to next page' });
+  await waitFor(() => expect(next).toBeEnabled());
+  fireEvent.click(next);
+  await screen.findByText('26–50 of 51');
+  view.rerender(wrap('Opening'));
+  await waitFor(() =>
+    expect(
+      calls.some((c) => c.url === '/api/opening-stock' && c.params?.page === 1),
+    ).toBe(true),
+  );
+});
+
 it('shows a posted GRN read-only with fractional quantities and offers Reverse only to Admins', async () => {
   handler = ({ url }) =>
     url === '/api/grns/g1'
@@ -177,6 +240,33 @@ it('requests stock at the end of a chosen date, or now for today', async () => {
   });
   await screen.findByText(/End of 2026-03-31/);
   expect(calls.at(-1)!.params?.date).toBe('2026-03-31');
+});
+
+it('filters the stock report by the selected category', async () => {
+  handler = ({ url }) => ({
+    status: 200,
+    data:
+      url === '/api/categories'
+        ? { items: [{ id: 'c1', name: 'Filters' }], totalCount: 1 }
+        : {
+            asOfUtc: null,
+            totalUnits: 3,
+            totalValue: 15,
+            items: { items: [], page: 1, pageSize: 50, totalCount: 0 },
+          },
+  });
+  renderAt('/inventory/stock', '/inventory/stock', <StockReportPage />);
+  fireEvent.change(screen.getByRole('combobox', { name: 'Category' }), {
+    target: { value: 'Fil' },
+  });
+  fireEvent.click(await screen.findByRole('option', { name: 'Filters' }));
+  await waitFor(() =>
+    expect(
+      calls.some(
+        (c) => c.url === '/api/stock' && c.params?.categoryId === 'c1',
+      ),
+    ).toBe(true),
+  );
 });
 
 it('shows the stock card with running balances and links to documents', async () => {

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import Autocomplete from '@mui/material/Autocomplete';
 import Chip from '@mui/material/Chip';
 import TextField from '@mui/material/TextField';
+import TablePagination from '@mui/material/TablePagination';
 import { formatMoney } from '../../lib/shop';
 import {
   formatQty,
@@ -10,6 +11,27 @@ import {
   type DocumentStatus,
   type ItemOption,
 } from './api';
+
+export function DocumentPagination({
+  page,
+  total,
+  onPageChange,
+}: {
+  page: number;
+  total: number;
+  onPageChange: (page: number) => void;
+}) {
+  return (
+    <TablePagination
+      component="div"
+      count={total}
+      page={page - 1}
+      rowsPerPage={25}
+      rowsPerPageOptions={[25]}
+      onPageChange={(_, next) => onPageChange(next + 1)}
+    />
+  );
+}
 
 export function StatusChip({ status }: { status: DocumentStatus }) {
   const color =

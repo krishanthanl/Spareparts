@@ -15,7 +15,7 @@ namespace Infrastructure.Inventory;
 public sealed class StockQueryService(AppDbContext db, ShopTime shopTime, TimeProvider clock) : IStockQueryService
 {
     private sealed record Row(Guid ItemId, string Sku, string Name, string CategoryName, int? ReorderLevel, int? ReorderQuantity,
-        decimal OnHand, decimal AverageCost, decimal? SellingPrice);
+        decimal OnHand, decimal AverageCost, decimal? SellingPrice, decimal Reserved = 0);
 
     public DateTimeOffset? ResolveAsOf(StockRequest request) =>
         request.Date is { } date ? shopTime.GetUtcDayRange(date).EndExclusive : request.AsOf?.ToUniversalTime();
@@ -55,11 +55,13 @@ public sealed class StockQueryService(AppDbContext db, ShopTime shopTime, TimePr
         var all = db.StockMovements.AsNoTracking().Where(m => m.ItemId == itemId);
         var opening = start is null ? 0 : await all.Where(m => m.OccurredAt < start).SumAsync(m => (decimal?)m.QtyChange, ct) ?? 0;
         var movements = await all.Where(m => (start == null || m.OccurredAt >= start) && (end == null || m.OccurredAt < end))
-            .OrderBy(m => m.Sequence).Take(2000).ToListAsync(ct);
+            .OrderBy(m => m.Sequence).ToListAsync(ct);
         var grnIds = movements.Where(m => m.RefType == "Grn").Select(m => m.RefId).Distinct().ToList();
         var docIds = movements.Where(m => m.RefType == "StockDocument").Select(m => m.RefId).Distinct().ToList();
+        var issueIds = movements.Where(m => m.RefType == "StockIssue").Select(m => m.RefId).Distinct().ToList();
         var numbers = (await db.Grns.Where(x => grnIds.Contains(x.Id)).Select(x => new { x.Id, Number = x.GrnNumber }).ToListAsync(ct))
             .Concat(await db.StockDocuments.Where(x => docIds.Contains(x.Id)).Select(x => new { x.Id, x.Number }).ToListAsync(ct))
+            .Concat(await db.StockIssues.Where(x => issueIds.Contains(x.Id)).Select(x => new { x.Id, Number = (string?)x.IssueNumber }).ToListAsync(ct))
             .ToDictionary(x => x.Id, x => x.Number);
         var balance = opening;
         var rows = movements.Select(m =>
@@ -84,17 +86,21 @@ public sealed class StockQueryService(AppDbContext db, ShopTime shopTime, TimePr
         if (categoryId is { } category) items = items.Where(x => x.CategoryId == category);
         var movements = db.StockMovements.Where(m => asOf == null || m.OccurredAt < asOf);
         var prices = db.ItemPriceHistory.Where(p => asOf == null || p.EffectiveFrom < asOf);
-        return await items.Select(i => new Row(i.Id, i.Sku, i.Name, i.Category!.Name, i.ReorderLevel, i.ReorderQuantity,
+        var rows = await items.Select(i => new Row(i.Id, i.Sku, i.Name, i.Category!.Name, i.ReorderLevel, i.ReorderQuantity,
                 movements.Where(m => m.ItemId == i.Id).Sum(m => (decimal?)m.QtyChange) ?? 0,
                 movements.Where(m => m.ItemId == i.Id).OrderByDescending(m => m.Sequence).Select(m => (decimal?)m.AverageCostAfter).FirstOrDefault() ?? 0,
                 prices.Where(p => p.ItemId == i.Id).OrderByDescending(p => p.Sequence).Select(p => (decimal?)p.SellingPrice).FirstOrDefault()))
             .ToListAsync(ct);
+        // Reservations exist only now; historical stock has none.
+        if (asOf is not null) return rows;
+        var reserved = await StockLedger.Reservations(db).ToDictionaryAsync(x => x.ItemId, x => x.Quantity, ct);
+        return rows.Select(r => r with { Reserved = reserved.GetValueOrDefault(r.ItemId) }).ToList();
     }
 
     private static decimal Value(Row r) => StockLedger.Money(r.OnHand * r.AverageCost);
 
     private static StockRow ToDto(Row r) => new(r.ItemId, r.Sku, r.Name, r.CategoryName, r.OnHand, r.ReorderLevel, r.ReorderQuantity,
-        r.SellingPrice, r.AverageCost, Value(r));
+        r.SellingPrice, r.AverageCost, Value(r), r.Reserved, r.OnHand - r.Reserved);
 }
 
 public sealed class PriceService(AppDbContext db) : IPriceService

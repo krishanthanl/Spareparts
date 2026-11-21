@@ -26,7 +26,7 @@ import {
   type ImportResult,
   type StockDocument,
 } from './api';
-import { ItemPicker, StatusChip } from './components';
+import { DocumentPagination, ItemPicker, StatusChip } from './components';
 
 const copy = {
   Adjustment: {
@@ -54,10 +54,14 @@ const adjustmentReasons: AdjustmentReason[] = [
 ];
 
 export function StockDocumentListPage({ kind }: { kind: DocumentKind }) {
+  const [pages, setPages] = useState({ Adjustment: 1, Opening: 1 });
+  const page = pages[kind];
+  const setPage = (next: number) =>
+    setPages((current) => ({ ...current, [kind]: next }));
   const text = copy[kind];
   const list = useQuery({
-    queryKey: ['stock-documents', kind],
-    queryFn: () => inventoryApi.documents(kind, {}),
+    queryKey: ['stock-documents', kind, page],
+    queryFn: () => inventoryApi.documents(kind, { page, pageSize: 25 }),
   });
   return (
     <>
@@ -112,6 +116,11 @@ export function StockDocumentListPage({ kind }: { kind: DocumentKind }) {
           </TableBody>
         </Table>
       </TableContainer>
+      <DocumentPagination
+        page={page}
+        total={list.data?.totalCount ?? 0}
+        onPageChange={setPage}
+      />
     </>
   );
 }

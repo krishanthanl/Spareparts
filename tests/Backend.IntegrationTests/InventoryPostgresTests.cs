@@ -237,6 +237,56 @@ public sealed class InventoryPostgresTests : IAsyncLifetime
     }
 
     [PostgresFact]
+    public async Task Receipt_keeps_the_price_in_effect_when_posted_after_later_price_changes()
+    {
+        var item = await ItemAsync("TP-SNAPSHOT");
+        await ReceiveAsync(item, 2, 5m, 20m);
+        var receipt = await ReceiveAsync(item, 3, 6m, null);
+        Assert.Equal(20m, Assert.Single(receipt.Lines).SellingPrice);
+
+        await Run(sp => sp.GetRequiredService<IPriceService>().ChangeAsync(item, new PriceChangeInput(30m, "New retail price"), default));
+        var saved = await Run(sp => sp.GetRequiredService<IGrnService>().GetAsync(receipt.Id, default));
+        Assert.Equal(20m, Assert.Single(saved.Lines).SellingPrice);
+        Assert.Equal(30m, Assert.Single(saved.Lines).CurrentPrice);
+        Assert.Equal(5m, await OnHandAsync(item));
+    }
+
+    [PostgresFact]
+    public async Task Posted_receipt_lines_cannot_be_moved_to_a_draft()
+    {
+        var item = await ItemAsync("TP-LINE-LOCK");
+        var posted = await ReceiveAsync(item, 2, 5m);
+        var draft = await ReceiveAsync(item, 1, 6m, post: false);
+        await Run(async sp =>
+        {
+            var db = sp.GetRequiredService<AppDbContext>();
+            var error = await Record.ExceptionAsync(() => db.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE grn_lines SET \"GrnId\" = {draft.Id}, \"LineNo\" = 2 WHERE \"Id\" = {posted.Lines[0].Id}"));
+            Assert.NotNull(error);
+            Assert.Contains("cannot change", error.Message);
+            return 0;
+        });
+    }
+
+    [PostgresFact]
+    public async Task Stock_card_does_not_silently_drop_movements_after_two_thousand()
+    {
+        var item = await ItemAsync("TP-LONG-CARD");
+        await Run(async sp =>
+        {
+            await sp.GetRequiredService<AppDbContext>().Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO stock_movements ("Id","ItemId","MovementType","QtyChange","UnitCost","AverageCostAfter","RefType","RefId","PostingKey","CreatedAt","CreatedBy","UpdatedAt","UpdatedBy")
+                SELECT gen_random_uuid(), {item}, 4, 1, 5, 5, 'Test', gen_random_uuid(), 'long-card:' || n, now(), 't', now(), 't'
+                FROM generate_series(1, 2001) n
+                """);
+            return 0;
+        });
+        var card = await Run(sp => sp.GetRequiredService<IStockQueryService>().StockCardAsync(item, null, null, default));
+        Assert.Equal(2001, card.Movements.Count);
+        Assert.Equal(card.OnHand, card.Movements[^1].Balance);
+    }
+
+    [PostgresFact]
     public async Task Opening_stock_is_allowed_once_per_item()
     {
         var item = await ItemAsync("TP-110");

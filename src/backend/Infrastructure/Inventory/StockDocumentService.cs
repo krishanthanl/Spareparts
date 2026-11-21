@@ -26,7 +26,7 @@ public sealed class StockDocumentService(AppDbContext db, ICurrentActor actor) :
             var pattern = LikePattern(request.Q);
             query = query.Where(x => (x.Number != null && EF.Functions.ILike(x.Number, pattern, "\\")) || (x.Notes != null && EF.Functions.ILike(x.Notes, pattern, "\\")));
         }
-        query = request.Sort switch
+        query = (request.Sort switch
         {
             "updatedAt" => query.OrderBy(x => x.UpdatedAt),
             "postedAt" => query.OrderBy(x => x.PostedAt),
@@ -34,7 +34,7 @@ public sealed class StockDocumentService(AppDbContext db, ICurrentActor actor) :
             "number" => query.OrderBy(x => x.Number),
             "-number" => query.OrderByDescending(x => x.Number),
             _ => query.OrderByDescending(x => x.UpdatedAt),
-        };
+        }).ThenBy(x => x.Id);
         var total = await query.CountAsync(ct);
         var rows = await query.Skip((request.Page - 1) * request.PageSize).Take(request.PageSize)
             .Select(x => new StockDocumentSummaryDto(x.Id, x.Kind, x.Number, x.Reason, x.Status, x.Lines.Count, x.Lines.Sum(l => l.QtyChange), x.PostedAt, x.UpdatedAt))
@@ -101,6 +101,7 @@ public sealed class StockDocumentService(AppDbContext db, ICurrentActor actor) :
                 ledger.Remove(line.ItemId, MovementType.Adjustment, -line.QtyChange, reference);
         }
         ledger.EnsureNotNegative();
+        if (document.StocktakeId is null) ledger.EnsureCoversReservations();
         document.Number = await DocumentNumbers.NextAsync(db, document.Kind == StockDocumentKind.Opening ? "OPN" : "ADJ", actor.ActorId, ct);
         document.Status = DocumentStatus.Posted;
         document.PostedBy = actor.ActorId;
