@@ -11,6 +11,7 @@ import { AuthContext } from '../auth/useAuth';
 import { OrderListPage, OrderPage } from './OrderPages';
 import { DailyTakingsPage } from './SalesPages';
 import type { Order } from './api';
+import type { OrderAfterSale, Refund } from './afterSaleApi';
 
 type Call = {
   url: string;
@@ -138,7 +139,140 @@ const invoice = (patch: Partial<Order> = {}): Order => ({
   version: 3,
   createdAt: '2026-11-20T00:59:00Z',
   updatedAt: '2026-11-20T01:05:00Z',
+  creditTotal: 0,
+  refundedTotal: 0,
+  deliveryPostcode: null,
+  deliveryIsRural: false,
+  deliveryZoneName: null,
+  deliveryPromise: null,
+  deliveryChargeReason: null,
   ...patch,
+});
+
+const afterSale = (patch: Partial<OrderAfterSale> = {}): OrderAfterSale => ({
+  balance: {
+    orderId: 'o1',
+    invoiceNumber: 'INV-000007',
+    status: 'Confirmed',
+    total: 50,
+    credits: 0,
+    netTotal: 50,
+    received: 20,
+    refunded: 0,
+    netPaid: 20,
+    balanceDue: 30,
+    owedToCustomer: 0,
+    pendingRefunds: 0,
+    refundable: 0,
+    refundableOnCancel: 20,
+    canCancel: false,
+  },
+  shipments: [],
+  returnable: [],
+  returns: [],
+  creditNotes: [],
+  refunds: [],
+  ...patch,
+});
+
+test('returns send chosen lines with condition, and a refund requester cannot approve it', async () => {
+  const refund: Refund = {
+    id: 'r1',
+    refundNumber: 'RFD-000001',
+    orderId: 'o1',
+    invoiceNumber: 'INV-000007',
+    customerName: 'Sam',
+    creditNoteId: null,
+    creditNoteNumber: null,
+    amount: 10,
+    method: 'Cash',
+    reason: 'Overpaid',
+    status: 'Requested',
+    requestedBy: 'Me',
+    requestedById: 'u1',
+    requestedAt: '2026-11-20T01:00:00Z',
+    approvedBy: null,
+    approvedAt: null,
+    completedBy: null,
+    completedAt: null,
+    evidenceReference: null,
+    failureReason: null,
+    allocations: [],
+    version: 1,
+  };
+  handler = (call) =>
+    call.url.endsWith('/after-sale')
+      ? {
+          status: 200,
+          data: afterSale({
+            returnable: [
+              {
+                orderLineId: 'l1',
+                lineNo: 1,
+                sku: 'BP-1',
+                description: 'Brake pads',
+                ordered: 2,
+                issued: 2,
+                returned: 0,
+                returnable: 2,
+                lineTotal: 50,
+                credited: 0,
+              },
+            ],
+            refunds: [refund],
+          }),
+        }
+      : { status: 200, data: invoice({ status: 'Completed' }) };
+  render(
+    <MemoryRouter initialEntries={['/sales/invoices/o1']}>
+      <AppProviders>
+        <AuthContext.Provider
+          value={{
+            ...auth([
+              'sales.invoice',
+              'sales.return',
+              'refunds.create',
+              'refunds.approve',
+            ]),
+            state: {
+              status: 'signedIn',
+              user: { id: 'u1' } as never,
+              menus: [],
+            },
+          }}
+        >
+          <Routes>
+            <Route path="/sales/invoices/:id" element={<OrderPage />} />
+          </Routes>
+        </AuthContext.Provider>
+      </AppProviders>
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText('RFD-000001')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Return goods' }));
+  fireEvent.change(screen.getByLabelText('Return quantity of BP-1'), {
+    target: { value: '1' },
+  });
+  fireEvent.change(screen.getByLabelText('Condition of BP-1'), {
+    target: { value: 'WriteOff' },
+  });
+  fireEvent.change(screen.getByLabelText(/Reason/), {
+    target: { value: 'Damaged in box' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Record return' }));
+  await waitFor(() =>
+    expect(calls.some((c) => c.url === '/api/orders/o1/returns')).toBe(true),
+  );
+  const body = JSON.parse(
+    calls.find((c) => c.url === '/api/orders/o1/returns')!.data as string,
+  );
+  expect(body).toMatchObject({
+    reason: 'Damaged in box',
+    lines: [{ orderLineId: 'l1', quantity: 1, disposition: 'WriteOff' }],
+  });
+  expect(body.idempotencyKey).toMatch(/[0-9a-f-]{36}/);
 });
 
 test('order list sends the filters and shows cash sales', async () => {
@@ -183,16 +317,18 @@ test('order list sends the filters and shows cash sales', async () => {
 
 test('a confirmed invoice offers issue and payment, and payment sends an idempotency key', async () => {
   handler = (call) =>
-    call.url.endsWith('/payments')
-      ? {
-          status: 200,
-          data: invoice({
-            amountPaid: 50,
-            balanceDue: 0,
-            paymentStatus: 'Paid',
-          }),
-        }
-      : { status: 200, data: invoice() };
+    call.url.endsWith('/after-sale')
+      ? { status: 200, data: afterSale() }
+      : call.url.endsWith('/payments')
+        ? {
+            status: 200,
+            data: invoice({
+              amountPaid: 50,
+              balanceDue: 0,
+              paymentStatus: 'Paid',
+            }),
+          }
+        : { status: 200, data: invoice() };
   renderAt('/sales/invoices/o1', '/sales/invoices/:id', <OrderPage />, [
     'sales.invoice',
     'sales.issue',
