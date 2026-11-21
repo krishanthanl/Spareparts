@@ -185,6 +185,7 @@ export function StockReportPage() {
               <TableCell>Name</TableCell>
               <TableCell>Category</TableCell>
               <TableCell align="right">On hand</TableCell>
+              <TableCell align="right">Reserved</TableCell>
               <TableCell align="right">Average cost</TableCell>
               <TableCell align="right">Value</TableCell>
               <TableCell align="right">Selling price</TableCell>
@@ -199,6 +200,9 @@ export function StockReportPage() {
                 <TableCell>{r.name}</TableCell>
                 <TableCell>{r.categoryName}</TableCell>
                 <TableCell align="right">{formatQty(r.onHand)}</TableCell>
+                <TableCell align="right">
+                  {r.reserved ? formatQty(r.reserved) : '—'}
+                </TableCell>
                 <TableCell align="right">
                   {formatMoney(r.averageCost)}
                 </TableCell>

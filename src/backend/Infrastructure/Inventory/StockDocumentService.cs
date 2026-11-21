@@ -101,6 +101,7 @@ public sealed class StockDocumentService(AppDbContext db, ICurrentActor actor) :
                 ledger.Remove(line.ItemId, MovementType.Adjustment, -line.QtyChange, reference);
         }
         ledger.EnsureNotNegative();
+        if (document.StocktakeId is null) ledger.EnsureCoversReservations();
         document.Number = await DocumentNumbers.NextAsync(db, document.Kind == StockDocumentKind.Opening ? "OPN" : "ADJ", actor.ActorId, ct);
         document.Status = DocumentStatus.Posted;
         document.PostedBy = actor.ActorId;

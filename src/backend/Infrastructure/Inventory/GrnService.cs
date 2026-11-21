@@ -115,6 +115,7 @@ public sealed class GrnService(AppDbContext db, ICurrentActor actor) : IGrnServi
         foreach (var m in originals)
             ledger.Unreceive(m.ItemId, m.QtyChange, m.UnitCost, new MovementRef("Grn", grn.Id, m.RefLineId, $"grn-reversal:{m.Id}", m.Id));
         ledger.EnsureNotNegative();
+        ledger.EnsureCoversReservations();
         grn.Status = DocumentStatus.Reversed;
         grn.ReversedBy = actor.ActorId;
         grn.ReversalReason = input.Reason.Trim();

@@ -176,6 +176,8 @@ export type StockRow = {
   sellingPrice: number | null;
   averageCost: number;
   stockValue: number;
+  reserved: number;
+  available: number;
 };
 export type StockReport = {
   asOfUtc: string | null;
