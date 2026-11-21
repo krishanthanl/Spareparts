@@ -19,6 +19,13 @@ public static class PermissionKeys
     public const string InventoryPrice = "inventory.price";
     public const string InventoryReverse = "inventory.reverse";
     public const string SalesInvoice = "sales.invoice";
+    public const string SalesDiscount = "sales.discount";
+    public const string SalesCancel = "sales.cancel";
+    public const string SalesIssue = "sales.issue";
+    public const string SalesReports = "sales.reports";
+    public const string PaymentsRecord = "payments.record";
+    public const string PaymentsVoid = "payments.void";
+    public const string CustomersManage = "customers.manage";
     public const string SalesReturn = "sales.return";
     public const string DeliveryConfigure = "delivery.configure";
     public const string FulfillmentUpdate = "fulfillment.update";
@@ -41,6 +48,13 @@ public static class PermissionKeys
         new(InventoryPrice, "Inventory", "Change selling prices"),
         new(InventoryReverse, "Inventory", "Reverse posted goods received"),
         new(SalesInvoice, "Sales", "Create invoices"),
+        new(SalesDiscount, "Sales", "Give discounts or sell below the selling price"),
+        new(SalesCancel, "Sales", "Cancel confirmed invoices"),
+        new(SalesIssue, "Sales", "Issue stock for orders"),
+        new(SalesReports, "Sales", "View daily takings"),
+        new(PaymentsRecord, "Sales", "Record payments"),
+        new(PaymentsVoid, "Sales", "Void recorded payments"),
+        new(CustomersManage, "Sales", "Add and edit customers"),
         new(SalesReturn, "Sales", "Process returns"),
         new(DeliveryConfigure, "Delivery", "Configure delivery options"),
         new(FulfillmentUpdate, "Delivery", "Update order fulfilment"),

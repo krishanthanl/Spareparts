@@ -15,6 +15,9 @@ internal sealed class ItemPosition
     public decimal AverageCost { get; set; }
     public decimal? SellingPrice { get; set; }
     public bool HasMovements { get; set; }
+    /// <summary>Held for confirmed sales orders and not yet issued (ADR 0005, D4).</summary>
+    public decimal Reserved { get; set; }
+    public decimal Available => OnHand - Reserved;
 }
 
 /// <summary>
@@ -44,6 +47,7 @@ internal sealed class StockLedger(AppDbContext db)
                 Average = g.OrderByDescending(m => m.Sequence).Select(m => m.AverageCostAfter).First(),
             }).ToListAsync(ct);
         var prices = await CurrentPrices(db, ids).ToListAsync(ct);
+        var reserved = await Reservations(db, ids).ToDictionaryAsync(x => x.ItemId, x => x.Quantity, ct);
         foreach (var item in items)
         {
             var s = stock.SingleOrDefault(x => x.ItemId == item.Id);
@@ -51,6 +55,7 @@ internal sealed class StockLedger(AppDbContext db)
             {
                 ItemId = item.Id, Sku = item.Sku, OnHand = s?.OnHand ?? 0, AverageCost = s?.Average ?? 0, HasMovements = s is not null,
                 SellingPrice = prices.SingleOrDefault(p => p.ItemId == item.Id)?.SellingPrice,
+                Reserved = reserved.GetValueOrDefault(item.Id),
             };
         }
     }
@@ -110,6 +115,31 @@ internal sealed class StockLedger(AppDbContext db)
             throw new ConflictException($"Not enough stock of {short_.Sku}: this would leave {short_.OnHand:0.###}.");
     }
 
+    /// <summary>
+    /// Rejects removals that would leave less stock than confirmed orders are holding. Used by manual
+    /// adjustments and GRN reversals; a stocktake records what is physically there, so it is not blocked.
+    /// </summary>
+    public void EnsureCoversReservations()
+    {
+        var short_ = positions.Values.FirstOrDefault(p => p.Available < 0 && p.Reserved > 0);
+        if (short_ is not null)
+            throw new ConflictException($"{short_.Sku}: {short_.Reserved:0.###} are reserved for confirmed orders, which would leave only {short_.OnHand:0.###} on hand. Issue or cancel those orders first.");
+    }
+
+    /// <summary>
+    /// Reserved quantity per item: what confirmed orders still have to issue. Derived, never stored, so it
+    /// cannot drift; postings read it under the same item locks that guard on-hand.
+    /// </summary>
+    public static IQueryable<ReservedQuantity> Reservations(AppDbContext db, IReadOnlyCollection<Guid>? ids = null) =>
+        db.SalesOrderLines
+            .Where(l => ids == null || ids.Contains(l.ItemId))
+            .Where(l => db.SalesOrders.Any(o => o.Id == l.OrderId
+                && (o.Status == Domain.Sales.SalesOrderStatus.Confirmed || o.Status == Domain.Sales.SalesOrderStatus.Completed)))
+            .Select(l => new { l.ItemId, Open = l.Quantity - (db.StockIssueLines.Where(i => i.OrderLineId == l.Id).Sum(i => (decimal?)i.Quantity) ?? 0) })
+            .Where(x => x.Open > 0)
+            .GroupBy(x => x.ItemId)
+            .Select(g => new ReservedQuantity(g.Key, g.Sum(x => x.Open)));
+
     private StockMovement Add(ItemPosition p, MovementType type, decimal qtyChange, decimal unitCost, MovementRef reference)
     {
         p.HasMovements = true;
@@ -158,6 +188,8 @@ internal sealed class StockLedger(AppDbContext db)
 }
 
 internal sealed record CurrentPrice(Guid ItemId, decimal SellingPrice);
+
+internal sealed record ReservedQuantity(Guid ItemId, decimal Quantity);
 
 internal sealed record MovementRef(string Type, Guid Id, Guid? LineId, string PostingKey, Guid? Reverses = null);
 

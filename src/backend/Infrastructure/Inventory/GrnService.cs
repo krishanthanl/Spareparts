@@ -20,7 +20,7 @@ public sealed class GrnService(AppDbContext db, ICurrentActor actor) : IGrnServi
             query = query.Where(x => EF.Functions.ILike(x.SupplierName, pattern, "\\") || (x.GrnNumber != null && EF.Functions.ILike(x.GrnNumber, pattern, "\\"))
                 || (x.SupplierReference != null && EF.Functions.ILike(x.SupplierReference, pattern, "\\")));
         }
-        query = request.Sort switch
+        query = (request.Sort switch
         {
             "updatedAt" => query.OrderBy(x => x.UpdatedAt),
             "postedAt" => query.OrderBy(x => x.PostedAt),
@@ -28,7 +28,7 @@ public sealed class GrnService(AppDbContext db, ICurrentActor actor) : IGrnServi
             "number" => query.OrderBy(x => x.GrnNumber),
             "-number" => query.OrderByDescending(x => x.GrnNumber),
             _ => query.OrderByDescending(x => x.UpdatedAt),
-        };
+        }).ThenBy(x => x.Id);
         var total = await query.CountAsync(ct);
         var rows = await query.Skip((request.Page - 1) * request.PageSize).Take(request.PageSize)
             .Select(x => new GrnSummaryDto(x.Id, x.GrnNumber, x.SupplierName, x.SupplierReference, x.Status, x.Lines.Count,
@@ -79,7 +79,12 @@ public sealed class GrnService(AppDbContext db, ICurrentActor actor) : IGrnServi
             if (line.SellingPrice is { } price) ledger.SetPrice(line.ItemId, price, PriceSource.Grn, grn.Id, null);
             else if (ledger[line.ItemId].SellingPrice is null)
                 throw Invalid($"Lines[{line.LineNo - 1}].SellingPrice", $"{ledger[line.ItemId].Sku} has no selling price yet. Enter one on this line.");
+            // Freeze the effective receipt price even when the draft left it blank.
+            line.SellingPrice ??= ledger[line.ItemId].SellingPrice;
         }
+        // Persist line snapshots while the parent is still Draft. The database locks
+        // posted lines, and EF may otherwise update the header before its children.
+        await db.SaveChangesAsync(ct);
         grn.GrnNumber = await DocumentNumbers.NextAsync(db, "GRN", actor.ActorId, ct);
         grn.Status = DocumentStatus.Posted;
         grn.PostedBy = actor.ActorId;
@@ -110,6 +115,7 @@ public sealed class GrnService(AppDbContext db, ICurrentActor actor) : IGrnServi
         foreach (var m in originals)
             ledger.Unreceive(m.ItemId, m.QtyChange, m.UnitCost, new MovementRef("Grn", grn.Id, m.RefLineId, $"grn-reversal:{m.Id}", m.Id));
         ledger.EnsureNotNegative();
+        ledger.EnsureCoversReservations();
         grn.Status = DocumentStatus.Reversed;
         grn.ReversedBy = actor.ActorId;
         grn.ReversalReason = input.Reason.Trim();

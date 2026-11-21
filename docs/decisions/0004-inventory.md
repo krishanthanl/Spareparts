@@ -24,7 +24,15 @@ Status: accepted 2026-11-17. `Plan/Phase3-Design-Proposal.md` approved, with the
 - **API enums** are serialized as names (`"Posted"`, `"Grn"`); numbers are still accepted on input.
 - **Saving after a rejected change.** The shared catalogue save helper now clears the context's pending changes when the database rejects a save (unique or concurrency), so a later save on the same context does not retry them. Found by the first real PostgreSQL run in CI.
 
-## Open items
+## Completion review (2026-11-17)
+
+- Receipt lines now save the selling price effective at posting even when the draft leaves it blank. Line snapshots are saved inside the posting transaction before the header becomes immutable.
+- `Phase3InventoryProtection` replaces the draft-line guard: lines cannot change parents, and the guard locks the parent to serialize edits against posting. The original committed migration remains unchanged.
+- Inventory JSON inputs reject unknown fields, including effective timestamps. Post/cancel actions reject request bodies; they use server posting time only.
+- Document lists expose pagination with deterministic ID tie breakers. Adjustment and opening-stock pages keep separate page state. Stock cards no longer silently discard movements beyond 2,000; date filters bound the requested history.
+- Local disposable PostgreSQL 17 is now available for verification in addition to GitHub Actions.
+
+## Remaining deployment checks
 
 - Apply `Phase3Inventory` to the hosted database only after confirming PL/pgSQL triggers work on Prisma Postgres (the migration itself is proven on PostgreSQL 17 in CI).
 - Reservations (available stock) arrive in Phase 4 without changing these tables.
