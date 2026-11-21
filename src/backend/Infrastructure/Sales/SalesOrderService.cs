@@ -281,6 +281,8 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
     {
         if (order.Status == SalesOrderStatus.Draft) throw new ConflictException("Confirm the order before issuing stock.");
         if (order.Status == SalesOrderStatus.Cancelled) throw new ConflictException("This order is cancelled.");
+        if (order.DeliveryMethod == DeliveryMethod.Delivery && shipmentId is null)
+            throw new ConflictException("Dispatch a shipment to issue stock for a delivery order.");
         var issued = await IssuedAsync(order.Id, ct);
         var lines = order.Lines.ToDictionary(x => x.Id);
         var requested = input.Lines is { Count: > 0 }

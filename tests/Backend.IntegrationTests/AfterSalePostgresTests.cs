@@ -170,6 +170,8 @@ public sealed class AfterSalePostgresTests : IAsyncLifetime
         var first = await After(a => a.CreateShipmentAsync(order.Id, new ShipmentInput("NZ Post", null, null, [new IssueLineInput(order.Lines[0].Id, 2)]), default));
         // Pending shipments hold their quantity: only 1 more can be put on another shipment.
         await Assert.ThrowsAsync<ConflictException>(() => After(a => a.CreateShipmentAsync(order.Id, new ShipmentInput(null, null, null, [new IssueLineInput(order.Lines[0].Id, 2)]), default)));
+        await Assert.ThrowsAsync<ConflictException>(() => Orders(s => s.IssueAsync(order.Id, new IssueInput(null, Key()), default)));
+        Assert.Equal(5, await OnHandAsync(item));
 
         var key = Key();
         var dispatched = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => Task.Run(() => After(a => a.DispatchAsync(first.Id, new DispatchInput(null, "TRK1", key), default)))));
