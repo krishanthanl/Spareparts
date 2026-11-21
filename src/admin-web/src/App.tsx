@@ -35,6 +35,13 @@ import {
 } from './features/inventory/StockPages';
 import { OrderListPage, OrderPage } from './features/sales/OrderPages';
 import {
+  CreditNotesPage,
+  DeliverySettingsPage,
+  RefundsPage,
+  ReturnsPage,
+  ShipmentsPage,
+} from './features/sales/AfterSalePages';
+import {
   CustomersPage,
   DailyTakingsPage,
   QuickSalePage,
@@ -333,6 +340,46 @@ function Workspace() {
               element={
                 <RequirePermission permission="sales.reports">
                   <DailyTakingsPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/sales/returns"
+              element={
+                <RequirePermission permission="sales.return">
+                  <ReturnsPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/sales/credit-notes"
+              element={
+                <RequirePermission permission="sales.invoice">
+                  <CreditNotesPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/sales/refunds"
+              element={
+                <RequirePermission permission="refunds.create">
+                  <RefundsPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/sales/shipments"
+              element={
+                <RequirePermission permission="fulfillment.update">
+                  <ShipmentsPage />
+                </RequirePermission>
+              }
+            />
+            <Route
+              path="/sales/delivery"
+              element={
+                <RequirePermission permission="delivery.configure">
+                  <DeliverySettingsPage />
                 </RequirePermission>
               }
             />

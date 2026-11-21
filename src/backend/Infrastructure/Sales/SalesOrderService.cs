@@ -16,7 +16,7 @@ namespace Infrastructure.Sales;
 /// locks the order row first, then the item rows in id order (the Phase 3 protocol), so steps on the
 /// same order or the same item run one after another, also across API instances.
 /// </summary>
-public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, ShopTime shopTime) : ISalesOrderService
+public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, ShopTime shopTime, DeliveryService delivery) : ISalesOrderService
 {
     private const string Changed = "This order was changed by someone else. Reload it and try again.";
 
@@ -61,7 +61,9 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         var total = await query.CountAsync(ct);
         var rows = await query.Skip((request.Page - 1) * request.PageSize).Take(request.PageSize)
             .Select(x => new OrderSummaryDto(x.Id, x.InvoiceNumber, x.Source, x.Status, x.PaymentStatus, x.FulfillmentStatus, x.CustomerName, x.CustomerPhone,
-                x.Total, x.AmountPaid, x.Status == SalesOrderStatus.Cancelled ? 0 : x.Total - x.AmountPaid, x.ConfirmedAt, x.UpdatedAt))
+                x.Total, x.AmountPaid - x.RefundedTotal,
+                x.Status == SalesOrderStatus.Cancelled ? x.RefundedTotal - x.AmountPaid : x.Total - x.CreditTotal - (x.AmountPaid - x.RefundedTotal),
+                x.ConfirmedAt, x.UpdatedAt))
             .ToListAsync(ct);
         return new(rows, request.Page, request.PageSize, total);
     }
@@ -102,8 +104,11 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         var stock = await StockAsync(input.Lines.Select(l => l.ItemId).ToList(), ct);
         var lines = built.Lines.Select(l => new PricedLineDto(l.ItemId, l.Sku, l.Description, l.Quantity, l.ListPrice, l.UnitPrice, l.LineDiscount,
             l.OrderDiscountShare, l.LineTotal, stock.GetValueOrDefault(l.ItemId) is var s ? s.OnHand - s.Reserved : 0)).ToList();
+        DeliveryQuoteDto? quote = null;
+        if (input.DeliveryMethod == DeliveryMethod.Delivery && !string.IsNullOrWhiteSpace(input.DeliveryPostcode))
+            quote = await delivery.QuoteAsync(new DeliveryQuoteInput(input.DeliveryPostcode, input.DeliveryIsRural, built.Priced.Total - built.Priced.DeliveryCharge), ct);
         return new OrderPreviewDto(lines, built.Priced.Subtotal, built.Priced.LineDiscountTotal, built.Priced.OrderDiscount, built.Priced.DeliveryCharge,
-            built.Priced.Total, built.NeedsDiscount);
+            built.Priced.Total, built.NeedsDiscount, quote);
     }
 
     // ---------------- Drafts ----------------
@@ -136,7 +141,8 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         var input = new OrderInput(source.Source == SalesSource.Online ? SalesSource.Admin : source.Source, source.CustomerId, source.CustomerName,
             source.CustomerPhone, source.CustomerEmail, source.CustomerCompany, source.BillingAddress, source.PaymentTerms, source.DeliveryMethod,
             source.DeliveryAddress, source.DeliveryCharge, 0, null, source.Notes,
-            source.Lines.OrderBy(l => l.LineNo).Select(l => new OrderLineInput(l.ItemId, l.Quantity)).ToList());
+            source.Lines.OrderBy(l => l.LineNo).Select(l => new OrderLineInput(l.ItemId, l.Quantity)).ToList(), null, source.DeliveryPostcode,
+            source.DeliveryIsRural, source.DeliveryChargeReason);
         return await CreateAsync(input, canDiscount: false, ct);
     }
 
@@ -162,7 +168,7 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
             if (!canCancelConfirmed) throw new ForbiddenException("Only staff with the sales.cancel permission can cancel a confirmed invoice.");
             if (order.Status == SalesOrderStatus.Completed || await db.StockIssues.AnyAsync(x => x.OrderId == id, ct))
                 throw new ConflictException("Goods have been issued on this invoice, so it cannot be cancelled. Use a return instead.");
-            if (order.AmountPaid != 0)
+            if (order.NetPaid != 0)
                 throw new ConflictException("This invoice has payments. Void or refund them before cancelling.");
         }
         order.Status = SalesOrderStatus.Cancelled;
@@ -209,6 +215,9 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         var order = await LockOrderAsync(original.OrderId, ct);
         if (await ReplayedPaymentAsync(input.IdempotencyKey, order.Id, ct)) return await DtoAsync(order.Id, ct);
         if (await db.Payments.AnyAsync(x => x.VoidsPaymentId == paymentId, ct)) throw new ConflictException("This payment was already voided.");
+        if (await db.RefundAllocations.AnyAsync(a => a.PaymentId == paymentId
+                && db.Refunds.Any(r => r.Id == a.RefundId && r.Status != RefundStatus.Failed && r.Status != RefundStatus.Cancelled), ct))
+            throw new ConflictException("A refund was made from this payment, so it cannot be voided.");
         if (order.Status == SalesOrderStatus.Cancelled) throw new ConflictException("This order is cancelled.");
         db.Payments.Add(new Payment
         {
@@ -264,11 +273,11 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         order.InvoiceNumber = await DocumentNumbers.NextAsync(db, "INV", actor.ActorId, ct);
         order.Status = SalesOrderStatus.Confirmed;
         order.ConfirmedBy = actor.ActorId;
-        order.PaymentStatus = SalesMath.PaymentStatusFor(order.Total, order.AmountPaid);
+        order.PaymentStatus = AfterSaleMath.PaymentStatusFor(order);
         order.FulfillmentStatus = FulfillmentStatus.NotIssued;
     }
 
-    private async Task IssueCoreAsync(SalesOrder order, IssueInput input, CancellationToken ct)
+    internal async Task<StockIssue> IssueCoreAsync(SalesOrder order, IssueInput input, CancellationToken ct, Guid? shipmentId = null)
     {
         if (order.Status == SalesOrderStatus.Draft) throw new ConflictException("Confirm the order before issuing stock.");
         if (order.Status == SalesOrderStatus.Cancelled) throw new ConflictException("This order is cancelled.");
@@ -289,7 +298,7 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         var issue = new StockIssue
         {
             IssueNumber = await DocumentNumbers.NextAsync(db, "ISS", actor.ActorId, ct), OrderId = order.Id,
-            IdempotencyKey = string.IsNullOrWhiteSpace(input.IdempotencyKey) ? null : input.IdempotencyKey,
+            IdempotencyKey = string.IsNullOrWhiteSpace(input.IdempotencyKey) ? null : input.IdempotencyKey, ShipmentId = shipmentId,
         };
         db.StockIssues.Add(issue);
         foreach (var (line, qty) in requested.OrderBy(x => x.Line.LineNo))
@@ -304,6 +313,7 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         ledger.EnsureNotNegative();
         order.FulfillmentStatus = SalesMath.FulfillmentStatusFor(order.Lines.Sum(l => l.Quantity), issued.Values.Sum());
         order.Status = SalesMath.StatusFor(order.Status, order.PaymentStatus, order.FulfillmentStatus);
+        return issue;
     }
 
     private async Task PayCoreAsync(SalesOrder order, PaymentMethod method, decimal amount, string? reference, string key, CancellationToken ct)
@@ -319,9 +329,9 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         await RefreshStatusAsync(order, ct);
     }
 
-    private async Task RefreshStatusAsync(SalesOrder order, CancellationToken ct)
+    internal async Task RefreshStatusAsync(SalesOrder order, CancellationToken ct)
     {
-        order.PaymentStatus = SalesMath.PaymentStatusFor(order.Total, order.AmountPaid);
+        order.PaymentStatus = AfterSaleMath.PaymentStatusFor(order);
         var issued = (await IssuedAsync(order.Id, ct)).Values.Sum();
         order.FulfillmentStatus = SalesMath.FulfillmentStatusFor(order.Lines.Sum(l => l.Quantity), issued);
         order.Status = SalesMath.StatusFor(order.Status, order.PaymentStatus, order.FulfillmentStatus);
@@ -412,6 +422,7 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         order.PaymentTerms = input.PaymentTerms;
         order.DeliveryMethod = input.DeliveryMethod;
         order.DeliveryAddress = input.DeliveryMethod == DeliveryMethod.Delivery ? Trim(input.DeliveryAddress) ?? customer?.DeliveryAddress : null;
+        await ApplyDeliveryAsync(order, input, built.Priced, canDiscount, ct);
         order.DeliveryCharge = built.Priced.DeliveryCharge;
         order.Subtotal = built.Priced.Subtotal;
         order.LineDiscountTotal = built.Priced.LineDiscountTotal;
@@ -436,9 +447,56 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         }
     }
 
+    /// <summary>
+    /// Checks the delivery charge against the zone quote and snapshots what it was based on (ADR 0006, D4).
+    /// A charge other than the quote needs a reason; charging less than the quote, or delivering outside every
+    /// zone, also needs sales.discount (Admin). With no zones set up yet, the typed charge is used as in 4a.
+    /// </summary>
+    private async Task ApplyDeliveryAsync(SalesOrder order, OrderInput input, PricedOrder priced, bool canDiscount, CancellationToken ct)
+    {
+        order.DeliveryPostcode = null;
+        order.DeliveryIsRural = false;
+        order.DeliveryZoneName = null;
+        order.DeliveryPromise = null;
+        order.DeliveryChargeReason = null;
+        var settings = await delivery.CurrentSettingsAsync(ct);
+        if (input.DeliveryMethod == DeliveryMethod.Pickup)
+        {
+            if (!settings.PickupEnabled && input.Source != SalesSource.Counter) throw Invalid("DeliveryMethod", "Pickup is switched off in the delivery settings.");
+            return;
+        }
+        if (!settings.DeliveryEnabled) throw Invalid("DeliveryMethod", "Delivery is switched off in the delivery settings.");
+        var reason = Trim(input.DeliveryChargeReason);
+        order.DeliveryIsRural = input.DeliveryIsRural;
+        if (string.IsNullOrWhiteSpace(input.DeliveryPostcode))
+        {
+            if (await delivery.HasActiveZonesAsync(ct)) throw Invalid("DeliveryPostcode", "Enter the delivery postcode so the charge can be quoted.");
+            order.DeliveryChargeReason = reason;
+            return;
+        }
+        order.DeliveryPostcode = input.DeliveryPostcode.Trim();
+        var quote = await delivery.QuoteAsync(new DeliveryQuoteInput(order.DeliveryPostcode, input.DeliveryIsRural, priced.Total - priced.DeliveryCharge), ct);
+        if (!quote.Delivers)
+        {
+            if (!canDiscount) throw new ForbiddenException("We don't deliver to that postcode. Only staff with the sales.discount permission can override it.");
+            if (reason is null) throw Invalid("DeliveryChargeReason", "Give a reason for delivering outside the delivery zones.");
+            order.DeliveryChargeReason = reason;
+            return;
+        }
+        order.DeliveryZoneName = quote.ZoneName;
+        order.DeliveryPromise = quote.ServicePromise;
+        if (priced.DeliveryCharge != quote.Charge)
+        {
+            if (reason is null) throw Invalid("DeliveryChargeReason", $"The quoted delivery charge is {quote.Charge:0.00}. Give a reason for charging something else.");
+            if (priced.DeliveryCharge < quote.Charge && !canDiscount)
+                throw new ForbiddenException("Charging less than the delivery quote needs the sales.discount permission.");
+            order.DeliveryChargeReason = reason;
+        }
+    }
+
     // ---------------- Helpers ----------------
 
-    private async Task<SalesOrder> LockOrderAsync(Guid id, CancellationToken ct)
+    internal async Task<SalesOrder> LockOrderAsync(Guid id, CancellationToken ct)
     {
         await db.Database.ExecuteSqlAsync($"SELECT 1 FROM sales_orders WHERE \"Id\" = {id} FOR UPDATE", ct);
         var tracked = db.ChangeTracker.Entries<SalesOrder>().SingleOrDefault(e => e.Entity.Id == id);
@@ -498,12 +556,13 @@ public sealed class SalesOrderService(AppDbContext db, ICurrentActor actor, Shop
         }).ToList();
         return new OrderDto(o.Id, o.InvoiceNumber, o.Source, o.Status, o.PaymentStatus, o.FulfillmentStatus, o.PaymentTerms, o.CustomerId, o.CustomerName,
             o.CustomerPhone, o.CustomerEmail, o.CustomerCompany, o.BillingAddress, o.DeliveryMethod, o.DeliveryAddress, o.DeliveryCharge, o.Subtotal,
-            o.LineDiscountTotal, o.OrderDiscount, o.DiscountReason, o.Total, o.AmountPaid, o.Status == SalesOrderStatus.Cancelled ? 0 : o.Total - o.AmountPaid,
+            o.LineDiscountTotal, o.OrderDiscount, o.DiscountReason, o.Total, o.AmountPaid, o.Balance,
             o.TaxTreatment, o.GstAmount, o.Currency, o.Notes, o.ConfirmedAt, o.ConfirmedBy is null ? null : names.GetValueOrDefault(o.ConfirmedBy),
             o.CancelledAt, o.CancelReason, lines, issues.Select(i => IssueDto(i, skus, names)).ToList(),
             payments.Select(p => new PaymentDto(p.Id, p.ReceiptNumber, p.OrderId, p.Method, p.Amount, p.Reference, p.ReceivedAt,
                 names.GetValueOrDefault(p.CreatedBy) ?? p.CreatedBy, p.VoidsPaymentId, p.VoidReason, voided.Contains(p.Id))).ToList(),
-            o.Version, o.CreatedAt, o.UpdatedAt);
+            o.Version, o.CreatedAt, o.UpdatedAt, o.CreditTotal, o.RefundedTotal, o.DeliveryPostcode, o.DeliveryIsRural, o.DeliveryZoneName,
+            o.DeliveryPromise, o.DeliveryChargeReason);
     }
 
     private static string? Trim(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

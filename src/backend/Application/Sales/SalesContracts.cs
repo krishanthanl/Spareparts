@@ -35,7 +35,10 @@ public sealed record OrderInput(
     string? DiscountReason,
     string? Notes,
     IReadOnlyList<OrderLineInput> Lines,
-    uint? Version = null);
+    uint? Version = null,
+    string? DeliveryPostcode = null,
+    bool DeliveryIsRural = false,
+    string? DeliveryChargeReason = null);
 
 public sealed record OrderLineDto(Guid Id, int LineNo, Guid ItemId, string Sku, string Description, decimal Quantity, decimal ListPrice, decimal UnitPrice,
     decimal LineDiscount, decimal OrderDiscountShare, decimal LineTotal, string? DiscountReason, decimal QtyIssued, decimal QtyToIssue, decimal? Available);
@@ -50,7 +53,8 @@ public sealed record OrderDto(
     decimal OrderDiscount, string? DiscountReason, decimal Total, decimal AmountPaid, decimal BalanceDue, TaxTreatment TaxTreatment, decimal GstAmount,
     string Currency, string? Notes, DateTimeOffset? ConfirmedAt, string? ConfirmedBy, DateTimeOffset? CancelledAt, string? CancelReason,
     IReadOnlyList<OrderLineDto> Lines, IReadOnlyList<StockIssueDto> Issues, IReadOnlyList<PaymentDto> Payments, uint Version, DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt, decimal CreditTotal = 0, decimal RefundedTotal = 0, string? DeliveryPostcode = null, bool DeliveryIsRural = false,
+    string? DeliveryZoneName = null, string? DeliveryPromise = null, string? DeliveryChargeReason = null);
 public sealed record OrderSummaryDto(Guid Id, string? InvoiceNumber, SalesSource Source, SalesOrderStatus Status, PaymentStatus PaymentStatus,
     FulfillmentStatus FulfillmentStatus, string? CustomerName, string? CustomerPhone, decimal Total, decimal AmountPaid, decimal BalanceDue,
     DateTimeOffset? ConfirmedAt, DateTimeOffset UpdatedAt);
@@ -59,7 +63,7 @@ public sealed record OrderListRequest(int Page = 1, int PageSize = 25, string? Q
 
 /// <summary>Server-calculated totals for an unsaved draft, so the editor never does its own money maths.</summary>
 public sealed record OrderPreviewDto(IReadOnlyList<PricedLineDto> Lines, decimal Subtotal, decimal LineDiscountTotal, decimal OrderDiscount,
-    decimal DeliveryCharge, decimal Total, bool NeedsDiscountPermission);
+    decimal DeliveryCharge, decimal Total, bool NeedsDiscountPermission, DeliveryQuoteDto? DeliveryQuote = null);
 public sealed record PricedLineDto(Guid ItemId, string Sku, string Description, decimal Quantity, decimal ListPrice, decimal UnitPrice,
     decimal LineDiscount, decimal OrderDiscountShare, decimal LineTotal, decimal Available);
 
@@ -84,11 +88,16 @@ public sealed record QuickSaleInput(OrderInput Order, PaymentMethod Method, deci
 public sealed record TakingsRequest(DateOnly From, DateOnly To);
 public sealed record TakingsPaymentRow(Guid PaymentId, string ReceiptNumber, string? InvoiceNumber, Guid OrderId, string? CustomerName, PaymentMethod Method,
     decimal Amount, string? Reference, DateTimeOffset ReceivedAt, string ReceivedBy, bool IsVoid);
-public sealed record TakingsMethodTotal(PaymentMethod Method, decimal Received, decimal Voided, decimal Net);
+/// <summary>Net = received - voided - refunds paid out by this method.</summary>
+public sealed record TakingsMethodTotal(PaymentMethod Method, decimal Received, decimal Voided, decimal Net, decimal Refunded = 0);
+/// <summary>A refund paid out (succeeded) on this shop day (ADR 0006, D12).</summary>
+public sealed record TakingsRefundRow(Guid RefundId, string RefundNumber, string? InvoiceNumber, Guid OrderId, string? CustomerName, PaymentMethod Method,
+    decimal Amount, string? EvidenceReference, DateTimeOffset CompletedAt, string CompletedBy);
+/// <summary>Credit notes are listed for reconciliation only: they are not money in or out.</summary>
 public sealed record TakingsDay(DateOnly Date, IReadOnlyList<TakingsMethodTotal> Methods, decimal Received, decimal Voided, decimal RefundsPaid, decimal Net,
-    IReadOnlyList<TakingsPaymentRow> Payments);
+    IReadOnlyList<TakingsPaymentRow> Payments, IReadOnlyList<TakingsRefundRow>? Refunds = null, decimal CreditsIssued = 0);
 public sealed record TakingsReport(DateOnly From, DateOnly To, IReadOnlyList<TakingsDay> Days, IReadOnlyList<TakingsMethodTotal> Methods, decimal Received,
-    decimal Voided, decimal RefundsPaid, decimal Net);
+    decimal Voided, decimal RefundsPaid, decimal Net, decimal CreditsIssued = 0);
 
 public interface ICustomerService
 {

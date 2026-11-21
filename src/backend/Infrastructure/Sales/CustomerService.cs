@@ -76,32 +76,44 @@ public sealed class TakingsReportService(AppDbContext db, ShopTime shopTime) : I
                           where p.ReceivedAt >= start && p.ReceivedAt < end
                           orderby p.ReceivedAt, p.ReceiptNumber
                           select new { p, o.InvoiceNumber, o.CustomerName }).ToListAsync(ct);
-        var ids = rows.Select(r => r.p.CreatedBy).Select(a => Guid.TryParse(a, out var g) ? g : Guid.Empty).Distinct().ToList();
+        var refundRows = await (from r in db.Refunds.AsNoTracking()
+                                join o in db.SalesOrders.AsNoTracking() on r.OrderId equals o.Id
+                                where r.Status == RefundStatus.Succeeded && r.CompletedAt >= start && r.CompletedAt < end
+                                orderby r.CompletedAt, r.RefundNumber
+                                select new { r, o.InvoiceNumber, o.CustomerName }).ToListAsync(ct);
+        var credits = await db.CreditNotes.AsNoTracking().Where(c => c.IssuedAt >= start && c.IssuedAt < end).Select(c => new { c.IssuedAt, c.Total }).ToListAsync(ct);
+        var ids = rows.Select(r => r.p.CreatedBy).Concat(refundRows.Select(r => r.r.CompletedBy ?? ""))
+            .Select(a => Guid.TryParse(a, out var g) ? g : Guid.Empty).Distinct().ToList();
         var names = await db.Users.IgnoreQueryFilters().AsNoTracking().Where(u => ids.Contains(u.Id)).ToDictionaryAsync(u => u.Id.ToString(), u => u.DisplayName, ct);
         var payments = rows.Select(r => new TakingsPaymentRow(r.p.Id, r.p.ReceiptNumber, r.InvoiceNumber, r.p.OrderId, r.CustomerName, r.p.Method, r.p.Amount,
             r.p.Reference, r.p.ReceivedAt, names.GetValueOrDefault(r.p.CreatedBy) ?? r.p.CreatedBy, r.p.VoidsPaymentId is not null)).ToList();
+        var refunds = refundRows.Select(r => new TakingsRefundRow(r.r.Id, r.r.RefundNumber, r.InvoiceNumber, r.r.OrderId, r.CustomerName, r.r.Method, r.r.Amount,
+            r.r.EvidenceReference, r.r.CompletedAt!.Value, names.GetValueOrDefault(r.r.CompletedBy ?? "") ?? r.r.CompletedBy ?? "")).ToList();
 
         var days = new List<TakingsDay>();
         for (var day = request.From; day <= request.To; day = day.AddDays(1))
         {
             var (s, e) = shopTime.GetUtcDayRange(day);
-            var list = payments.Where(p => p.ReceivedAt >= s && p.ReceivedAt < e).ToList();
-            days.Add(Day(day, list));
+            days.Add(Day(day, payments.Where(p => p.ReceivedAt >= s && p.ReceivedAt < e).ToList(),
+                refunds.Where(r => r.CompletedAt >= s && r.CompletedAt < e).ToList(),
+                credits.Where(c => c.IssuedAt >= s && c.IssuedAt < e).Sum(c => c.Total)));
         }
-        var all = Day(request.From, payments);
-        return new TakingsReport(request.From, request.To, days, all.Methods, all.Received, all.Voided, 0, all.Net);
+        var all = Day(request.From, payments, refunds, credits.Sum(c => c.Total));
+        return new TakingsReport(request.From, request.To, days, all.Methods, all.Received, all.Voided, all.RefundsPaid, all.Net, all.CreditsIssued);
     }
 
-    private static TakingsDay Day(DateOnly date, IReadOnlyList<TakingsPaymentRow> list)
+    private static TakingsDay Day(DateOnly date, IReadOnlyList<TakingsPaymentRow> list, IReadOnlyList<TakingsRefundRow> refunds, decimal credits)
     {
         var methods = Enum.GetValues<Domain.Sales.PaymentMethod>().Select(m =>
         {
             var received = list.Where(p => p.Method == m && !p.IsVoid).Sum(p => p.Amount);
             var voided = -list.Where(p => p.Method == m && p.IsVoid).Sum(p => p.Amount);
-            return new TakingsMethodTotal(m, received, voided, received - voided);
+            var refunded = refunds.Where(r => r.Method == m).Sum(r => r.Amount);
+            return new TakingsMethodTotal(m, received, voided, received - voided - refunded, refunded);
         }).ToList();
         var totalReceived = methods.Sum(x => x.Received);
         var totalVoided = methods.Sum(x => x.Voided);
-        return new TakingsDay(date, methods, totalReceived, totalVoided, 0, totalReceived - totalVoided, list);
+        var totalRefunded = methods.Sum(x => x.Refunded);
+        return new TakingsDay(date, methods, totalReceived, totalVoided, totalRefunded, totalReceived - totalVoided - totalRefunded, list, refunds, credits);
     }
 }

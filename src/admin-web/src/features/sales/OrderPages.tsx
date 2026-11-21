@@ -17,6 +17,9 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import { AfterSalePanel } from './AfterSalePanel';
 import { describeError, fieldError, type ApiProblem } from '../../api/problems';
 import { formatMoney, formatShopDate } from '../../lib/shop';
 import { ProblemAlert } from '../catalog/ProblemAlert';
@@ -32,6 +35,7 @@ import {
   sources,
   type Customer,
   type DeliveryMethod,
+  type DeliveryQuote,
   type FulfillmentStatus,
   type Order,
   type OrderStatus,
@@ -293,11 +297,13 @@ export function OrderHeaderFields({
   setHeader,
   problem,
   showSource = true,
+  quote,
 }: {
   header: Header;
   setHeader: (h: Header) => void;
   problem: ApiProblem | null;
   showSource?: boolean;
+  quote?: DeliveryQuote | null;
 }) {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const set = (patch: Partial<Header>) => setHeader({ ...header, ...patch });
@@ -394,21 +400,74 @@ export function OrderHeaderFields({
           <option value="Immediate">Pay now / on receipt</option>
           <option value="OnDelivery">Pay on delivery</option>
         </TextField>
-        {header.deliveryMethod === 'Delivery' && (
-          <>
-            {text('deliveryAddress', 'Delivery address', 3, true)}
-            <TextField
-              label="Delivery charge $"
-              value={header.deliveryCharge}
-              onChange={(e) => set({ deliveryCharge: e.target.value })}
-              error={!!fieldError(problem, 'deliveryCharge')}
-              helperText={fieldError(problem, 'deliveryCharge')}
-              slotProps={{ htmlInput: { inputMode: 'decimal' } }}
-              sx={{ maxWidth: 160 }}
-            />
-          </>
-        )}
+        {header.deliveryMethod === 'Delivery' &&
+          text('deliveryAddress', 'Delivery address', 3, true)}
       </Stack>
+      {header.deliveryMethod === 'Delivery' && (
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={2}
+          useFlexGap
+          sx={{ alignItems: { md: 'flex-start' }, flexWrap: 'wrap' }}
+        >
+          <TextField
+            label="Postcode"
+            value={header.deliveryPostcode ?? ''}
+            onChange={(e) => set({ deliveryPostcode: e.target.value })}
+            error={!!fieldError(problem, 'deliveryPostcode')}
+            helperText={fieldError(problem, 'deliveryPostcode')}
+            slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 4 } }}
+            sx={{ maxWidth: 120 }}
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={!!header.deliveryIsRural}
+                onChange={(e) => set({ deliveryIsRural: e.target.checked })}
+              />
+            }
+            label="Rural delivery (RD)"
+          />
+          <TextField
+            label="Delivery charge $"
+            value={header.deliveryCharge}
+            onChange={(e) => set({ deliveryCharge: e.target.value })}
+            error={!!fieldError(problem, 'deliveryCharge')}
+            helperText={
+              fieldError(problem, 'deliveryCharge') ??
+              (quote?.delivers && quote.charge !== null
+                ? `Quote ${formatMoney(quote.charge)}`
+                : undefined)
+            }
+            slotProps={{ htmlInput: { inputMode: 'decimal' } }}
+            sx={{ maxWidth: 160 }}
+          />
+          {quote?.delivers && quote.charge !== null && (
+            <Button
+              size="small"
+              sx={{ mt: 1 }}
+              onClick={() =>
+                set({
+                  deliveryCharge: String(quote.charge),
+                  deliveryChargeReason: null,
+                })
+              }
+            >
+              Use quote
+            </Button>
+          )}
+          <Stack sx={{ flex: 2, minWidth: 240 }}>
+            {text('deliveryChargeReason', 'Reason if not the quote')}
+          </Stack>
+        </Stack>
+      )}
+      {header.deliveryMethod === 'Delivery' && quote && (
+        <Alert severity={quote.delivers ? 'info' : 'warning'}>
+          {quote.delivers
+            ? `${quote.zoneName}: ${formatMoney(quote.charge ?? 0)}${quote.free ? ' (free delivery threshold reached)' : ''}${quote.ruralSurcharge ? `, includes ${formatMoney(quote.ruralSurcharge)} rural surcharge` : ''}${quote.servicePromise ? ` · ${quote.servicePromise}` : ''}`
+            : `${quote.message} An admin can still deliver with a charge and a reason.`}
+        </Alert>
+      )}
     </Stack>
   );
 }
@@ -506,6 +565,7 @@ function OrderEditor({ order }: { order?: Order }) {
           header={header}
           setHeader={setHeader}
           problem={problem}
+          quote={preview.data?.deliveryQuote}
         />
       </Paper>
       <Paper elevation={0} className="permission-panel">
@@ -903,6 +963,8 @@ function InvoiceView({ order }: { order: Order }) {
           </Table>
         </Paper>
       </Stack>
+
+      {order.status !== 'Draft' && <AfterSalePanel order={order} />}
 
       {dialog === 'issue' && (
         <IssueDialog
