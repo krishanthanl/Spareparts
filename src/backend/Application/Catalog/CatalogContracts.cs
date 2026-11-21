@@ -37,7 +37,16 @@ public sealed record NameInput(string Name);
 /// <summary>Public storefront shapes. Never include cost, stock internals, audit actors or inactive/deleted data.</summary>
 public sealed record PublicCategoryDto(Guid Id, string Name, string Slug, string? Description, string? ThumbnailUrl, int ItemCount);
 public sealed record PublicItemDto(Guid Id, string Sku, string Name, string? Description, string CategoryName, string CategorySlug,
-    string? PartBrand, string? ImageUrl, string? ThumbnailUrl);
+    string? PartBrand, string? ImageUrl, string? ThumbnailUrl, decimal? Price, string Availability);
+public sealed record PublicItemQuery(string? Category = null, string? Q = null, int Page = 1, int PageSize = 24,
+    string? Brand = null, Guid? MakeId = null, Guid? ModelId = null, int? Year = null, decimal? MinPrice = null,
+    decimal? MaxPrice = null, string? Availability = null, string? Sort = null);
+public sealed record PublicItemDetail(PublicItemDto Item, IReadOnlyList<ItemImageDto> Images,
+    IReadOnlyList<FitmentDto> Fitments, IReadOnlyList<PublicItemDto> Related);
+public sealed record PublicVehicleMake(Guid Id, string Name);
+public sealed record PublicCartLine(Guid ItemId, int Quantity);
+public sealed record PublicCartRequest(IReadOnlyList<PublicCartLine> Lines);
+public sealed record PublicCartResult(Guid ItemId, PublicItemDto? Item, bool Accepted);
 
 public interface ICategoryService
 {
@@ -74,5 +83,10 @@ public interface IVehicleService
 public interface IPublicCatalogService
 {
     Task<IReadOnlyList<PublicCategoryDto>> CategoriesAsync(CancellationToken ct);
-    Task<PagedResult<PublicItemDto>> ItemsAsync(string? categorySlug, string? q, int page, int pageSize, CancellationToken ct);
+    Task<PagedResult<PublicItemDto>> ItemsAsync(PublicItemQuery query, CancellationToken ct);
+    Task<PublicItemDetail> DetailAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<PublicVehicleMake>> MakesAsync(CancellationToken ct);
+    Task<IReadOnlyList<VehicleModelDto>> ModelsAsync(Guid makeId, CancellationToken ct);
+    Task<IReadOnlyList<PublicCartResult>> ValidateCartAsync(PublicCartRequest request, CancellationToken ct);
+    Task<IReadOnlyList<Guid>> SitemapIdsAsync(CancellationToken ct);
 }

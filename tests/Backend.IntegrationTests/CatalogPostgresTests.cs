@@ -97,7 +97,7 @@ public sealed class CatalogPostgresTests : IAsyncLifetime
         Assert.Equal(0, (await s.Items.ListAsync(new PageRequest(), new ItemFilter(), default)).TotalCount);
         var all = await s.Items.ListAsync(new PageRequest(IncludeDeleted: true), new ItemFilter(), default);
         Assert.True(Assert.Single(all.Items).IsDeleted);
-        Assert.Equal(0, (await s.Public.ItemsAsync(null, null, 1, 24, default)).TotalCount);
+        Assert.Equal(0, (await s.Public.ItemsAsync(new PublicItemQuery(), default)).TotalCount);
     }
 
     [PostgresFact]
@@ -150,6 +150,6 @@ public sealed class CatalogPostgresTests : IAsyncLifetime
         await s.Items.CreateAsync(Item(shown.Id, "A"), default);
         await s.Items.CreateAsync(Item(hidden.Id, "B"), default);
         Assert.Equal(["Headlights"], (await s.Public.CategoriesAsync(default)).Select(x => x.Name));
-        Assert.Equal(["A"], (await s.Public.ItemsAsync(null, null, 1, 24, default)).Items.Select(x => x.Sku));
+        Assert.Equal(["A"], (await s.Public.ItemsAsync(new PublicItemQuery(), default)).Items.Select(x => x.Sku));
     }
 }
