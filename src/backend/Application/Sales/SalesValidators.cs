@@ -56,6 +56,9 @@ public sealed class OrderInputValidator : AbstractValidator<OrderInput>
         RuleFor(x => x.DiscountReason).MaximumLength(500);
         RuleFor(x => x.DiscountReason).NotEmpty().When(x => x.OrderDiscount > 0).WithMessage("Give a reason for the discount.");
         RuleFor(x => x.Notes).MaximumLength(1000);
+        RuleFor(x => x.DeliveryPostcode).Must(p => AfterSaleMath.TryParsePostcode(p, out _)).WithMessage("Use a 4-digit NZ postcode.")
+            .When(x => !string.IsNullOrWhiteSpace(x.DeliveryPostcode));
+        RuleFor(x => x.DeliveryChargeReason).MaximumLength(500);
         RuleFor(x => x.PaymentTerms).Equal(Domain.Sales.PaymentTerms.Immediate)
             .When(x => x.DeliveryMethod == Domain.Sales.DeliveryMethod.Pickup && x.Source == Domain.Sales.SalesSource.Counter)
             .WithMessage("Counter sales are paid at the counter.");

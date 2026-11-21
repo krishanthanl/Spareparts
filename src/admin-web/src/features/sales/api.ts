@@ -78,6 +78,9 @@ export type OrderInput = {
   notes: string | null;
   lines: OrderLineInput[];
   version?: number;
+  deliveryPostcode?: string | null;
+  deliveryIsRural?: boolean;
+  deliveryChargeReason?: string | null;
 };
 
 export type OrderLine = {
@@ -157,6 +160,13 @@ export type Order = {
   version: number;
   createdAt: string;
   updatedAt: string;
+  creditTotal: number;
+  refundedTotal: number;
+  deliveryPostcode: string | null;
+  deliveryIsRural: boolean;
+  deliveryZoneName: string | null;
+  deliveryPromise: string | null;
+  deliveryChargeReason: string | null;
 };
 export type OrderSummary = {
   id: string;
@@ -192,6 +202,7 @@ export type OrderPreview = {
   deliveryCharge: number;
   total: number;
   needsDiscountPermission: boolean;
+  deliveryQuote: DeliveryQuote | null;
 };
 export type SaleItem = {
   itemId: string;
@@ -207,6 +218,7 @@ export type TakingsMethod = {
   received: number;
   voided: number;
   net: number;
+  refunded: number;
 };
 export type TakingsPayment = {
   paymentId: string;
@@ -229,6 +241,8 @@ export type TakingsDay = {
   refundsPaid: number;
   net: number;
   payments: TakingsPayment[];
+  refunds: TakingsRefund[] | null;
+  creditsIssued: number;
 };
 export type TakingsReport = {
   from: string;
@@ -239,6 +253,19 @@ export type TakingsReport = {
   voided: number;
   refundsPaid: number;
   net: number;
+  creditsIssued: number;
+};
+export type TakingsRefund = {
+  refundId: string;
+  refundNumber: string;
+  invoiceNumber: string | null;
+  orderId: string;
+  customerName: string | null;
+  method: PaymentMethod;
+  amount: number;
+  evidenceReference: string | null;
+  completedAt: string;
+  completedBy: string;
 };
 
 export type OrderListParams = {
@@ -397,3 +424,13 @@ export const blankOrder = (source: SalesSource = 'Telephone'): OrderInput => ({
   notes: null,
   lines: [],
 });
+
+export type DeliveryQuote = {
+  delivers: boolean;
+  zoneName: string | null;
+  charge: number | null;
+  free: boolean;
+  ruralSurcharge: number;
+  servicePromise: string | null;
+  message: string | null;
+};

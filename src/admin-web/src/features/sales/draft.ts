@@ -79,6 +79,9 @@ export const toHeader = (o: OrderInput | Order): Header => ({
   orderDiscount: o.orderDiscount ? String(o.orderDiscount) : '',
   discountReason: o.discountReason,
   notes: o.notes,
+  deliveryPostcode: o.deliveryPostcode ?? null,
+  deliveryIsRural: o.deliveryIsRural ?? false,
+  deliveryChargeReason: o.deliveryChargeReason ?? null,
 });
 
 export const toEditLines = (o: Order): EditLine[] =>
@@ -112,6 +115,11 @@ export const buildInput = (
   orderDiscount: parseNumber(h.orderDiscount) ?? 0,
   discountReason: h.discountReason || null,
   notes: h.notes || null,
+  deliveryPostcode:
+    h.deliveryMethod === 'Delivery' ? h.deliveryPostcode?.trim() || null : null,
+  deliveryIsRural: h.deliveryMethod === 'Delivery' && !!h.deliveryIsRural,
+  deliveryChargeReason:
+    h.deliveryMethod === 'Delivery' ? h.deliveryChargeReason || null : null,
   lines: toLineInputs(lines),
   version,
 });

@@ -39,6 +39,17 @@ public class AppDbContext(DbContextOptions options) : DbContext(options)
     public DbSet<Domain.Sales.StockIssue> StockIssues => Set<Domain.Sales.StockIssue>();
     public DbSet<Domain.Sales.StockIssueLine> StockIssueLines => Set<Domain.Sales.StockIssueLine>();
     public DbSet<Domain.Sales.Payment> Payments => Set<Domain.Sales.Payment>();
+    public DbSet<Domain.Sales.DeliverySettings> DeliverySettings => Set<Domain.Sales.DeliverySettings>();
+    public DbSet<Domain.Sales.DeliveryZone> DeliveryZones => Set<Domain.Sales.DeliveryZone>();
+    public DbSet<Domain.Sales.DeliveryZonePostcode> DeliveryZonePostcodes => Set<Domain.Sales.DeliveryZonePostcode>();
+    public DbSet<Domain.Sales.Shipment> Shipments => Set<Domain.Sales.Shipment>();
+    public DbSet<Domain.Sales.ShipmentLine> ShipmentLines => Set<Domain.Sales.ShipmentLine>();
+    public DbSet<Domain.Sales.SalesReturn> SalesReturns => Set<Domain.Sales.SalesReturn>();
+    public DbSet<Domain.Sales.SalesReturnLine> SalesReturnLines => Set<Domain.Sales.SalesReturnLine>();
+    public DbSet<Domain.Sales.CreditNote> CreditNotes => Set<Domain.Sales.CreditNote>();
+    public DbSet<Domain.Sales.CreditNoteLine> CreditNoteLines => Set<Domain.Sales.CreditNoteLine>();
+    public DbSet<Domain.Sales.Refund> Refunds => Set<Domain.Sales.Refund>();
+    public DbSet<Domain.Sales.RefundAllocation> RefundAllocations => Set<Domain.Sales.RefundAllocation>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
