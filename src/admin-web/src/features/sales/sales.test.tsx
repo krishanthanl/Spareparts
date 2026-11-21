@@ -357,6 +357,24 @@ test('a confirmed invoice offers issue and payment, and payment sends an idempot
   expect(body.idempotencyKey).toMatch(/[0-9a-f-]{36}/);
 });
 
+test('a delivery invoice offers shipment creation instead of direct stock issue', async () => {
+  handler = (call) =>
+    call.url.endsWith('/after-sale')
+      ? { status: 200, data: afterSale() }
+      : { status: 200, data: invoice({ deliveryMethod: 'Delivery' }) };
+  renderAt('/sales/invoices/o1', '/sales/invoices/:id', <OrderPage />, [
+    'sales.invoice',
+    'sales.issue',
+    'fulfillment.update',
+  ]);
+  expect(
+    await screen.findByRole('button', { name: 'New shipment' }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: 'Issue stock' }),
+  ).not.toBeInTheDocument();
+});
+
 test('a draft opens in the editor with server-calculated totals', async () => {
   handler = (call) =>
     call.url === '/api/orders/preview'
