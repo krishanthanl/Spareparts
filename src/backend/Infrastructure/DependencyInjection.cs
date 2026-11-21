@@ -9,6 +9,7 @@ using Infrastructure.Inventory;
 using Application.Inventory;
 using Infrastructure.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Infrastructure;
 
@@ -28,6 +29,11 @@ public static class DependencyInjection
         services.AddScoped<IStocktakeService, StocktakeService>();
         services.AddScoped<IStockQueryService, StockQueryService>();
         services.AddScoped<IPriceService, PriceService>();
+        services.AddScoped<Application.Sales.ICustomerService, Sales.CustomerService>();
+        services.AddScoped<Application.Sales.ISalesOrderService, Sales.SalesOrderService>();
+        services.AddScoped<Application.Sales.ITakingsReportService, Sales.TakingsReportService>();
+        services.AddScoped<Application.Sales.IInvoicePdfService, Sales.InvoicePdfRenderer>();
+        services.TryAddSingleton(new Application.Sales.ShopSettings());
         return services;
     }
 
