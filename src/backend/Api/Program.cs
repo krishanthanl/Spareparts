@@ -24,10 +24,26 @@ using Serilog;
 using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddSerilog(logging => logging.MinimumLevel.Information()
-    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-    .MinimumLevel.Override("Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware", LogEventLevel.Fatal)
-    .Enrich.FromLogContext().WriteTo.Console());
+SentrySetup.Configure(builder);
+var sentryEnabled = SentrySetup.IsEnabled(builder.Configuration);
+builder.Services.AddSerilog(logging =>
+{
+    logging.MinimumLevel.Information()
+        .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+        .MinimumLevel.Override("Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware", LogEventLevel.Fatal)
+        .Enrich.FromLogContext().WriteTo.Console();
+    // Errors logged outside a request (background workers) become Sentry events; recent log lines ride
+    // along as breadcrumbs. Request failures are reported by GlobalExceptionHandler, so its own log line
+    // is left out here to avoid sending the same failure twice.
+    if (sentryEnabled)
+        logging.WriteTo.Logger(sentry => sentry
+            .Filter.ByExcluding(Serilog.Filters.Matching.FromSource<GlobalExceptionHandler>())
+            .WriteTo.Sentry(options =>
+            {
+                options.MinimumBreadcrumbLevel = LogEventLevel.Information;
+                options.MinimumEventLevel = LogEventLevel.Error;
+            }));
+});
 builder.Services.AddOptions<DatabaseSettings>().BindConfiguration("ConnectionStrings")
     .Validate(x => DatabaseSettings.IsValid(x.DefaultConnection), "A valid database connection is required; configure ConnectionStrings:DefaultConnection using secrets or environment variables.")
     .Validate(x => builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing") || (DatabaseSettings.IsValid(x.DefaultConnection) && new Npgsql.NpgsqlConnectionStringBuilder(x.DefaultConnection).SslMode == Npgsql.SslMode.VerifyFull),

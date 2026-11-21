@@ -43,8 +43,11 @@ public sealed class GlobalExceptionHandler(IProblemDetailsService problems, ILog
         else
         {
             detail = new ProblemDetails { Status = 500, Title = "An unexpected error occurred." };
-            // Never serialize the exception/message: provider failures can contain secrets.
-            logger.LogError("Unhandled {ExceptionType}; trace {TraceId}", exception.GetType().Name, Activity.Current?.TraceId.ToString() ?? context.TraceIdentifier);
+            var traceId = Activity.Current?.TraceId.ToString() ?? context.TraceIdentifier;
+            // Never serialize the exception/message into the log: provider failures can contain secrets.
+            logger.LogError("Unhandled {ExceptionType}; trace {TraceId}", exception.GetType().Name, traceId);
+            // Sentry (when configured) gets the stack trace, tagged with the correlation id shown to staff.
+            Api.Observability.SentrySetup.CaptureRequestFailure(context, exception, traceId);
         }
         context.Response.StatusCode = detail.Status!.Value;
         return await problems.TryWriteAsync(new ProblemDetailsContext { HttpContext = context, ProblemDetails = detail });
