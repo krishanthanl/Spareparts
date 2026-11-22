@@ -282,6 +282,12 @@ export const inventoryApi = {
     (await apiClient.post<StockDocument>(`${base(kind)}/${id}/post`)).data,
   cancelDocument: async (kind: DocumentKind, id: string) =>
     (await apiClient.post<StockDocument>(`${base(kind)}/${id}/cancel`)).data,
+  downloadOpeningTemplate: async () =>
+    (
+      await apiClient.get<Blob>('/api/opening-stock/template', {
+        responseType: 'blob',
+      })
+    ).data,
   importOpening: async (file: File, dryRun: boolean) => {
     const form = new FormData();
     form.append('file', file);

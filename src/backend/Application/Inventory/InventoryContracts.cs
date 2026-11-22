@@ -84,6 +84,8 @@ public interface IStockDocumentService
     Task<StockDocumentDto> PostAsync(StockDocumentKind kind, Guid id, CancellationToken ct);
     Task<StockDocumentDto> CancelAsync(StockDocumentKind kind, Guid id, CancellationToken ct);
     Task<OpeningImportResult> ImportOpeningAsync(string csv, bool dryRun, CancellationToken ct);
+    Task<byte[]> ExportOpeningWorkbookAsync(CancellationToken ct);
+    Task<OpeningImportResult> ImportOpeningWorkbookAsync(Stream workbook, bool dryRun, CancellationToken ct);
 }
 
 public interface IStocktakeService
