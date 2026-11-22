@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Xml.Linq;
 using Application.Common;
 using Application.Inventory;
 using Domain.Catalog;
@@ -284,6 +286,56 @@ public sealed class InventoryPostgresTests : IAsyncLifetime
         var card = await Run(sp => sp.GetRequiredService<IStockQueryService>().StockCardAsync(item, null, null, default));
         Assert.Equal(2001, card.Movements.Count);
         Assert.Equal(card.OnHand, card.Movements[^1].Balance);
+    }
+
+    [PostgresFact]
+    public async Task Opening_workbook_checks_counts_and_updates_stock_when_posted()
+    {
+        var item = await ItemAsync("00123");
+        var alreadyStocked = await ItemAsync("HISTORY");
+        await ReceiveAsync(alreadyStocked, 2, 4);
+        await Run(async sp =>
+        {
+            var documents = sp.GetRequiredService<IStockDocumentService>();
+            using var workbook = new MemoryStream();
+            workbook.Write(await documents.ExportOpeningWorkbookAsync(default));
+            workbook.Position = 0;
+            using (var archive = new ZipArchive(workbook, ZipArchiveMode.Update, leaveOpen: true))
+            {
+                var entry = archive.GetEntry("xl/worksheets/sheet1.xml")!;
+                XDocument sheet;
+                using (var input = entry.Open()) sheet = XDocument.Load(input);
+                var ns = sheet.Root!.Name.Namespace;
+                var rows = sheet.Descendants(ns + "row").ToArray();
+                Assert.Contains("00123", rows[1].Value);
+                Assert.Contains("Already has stock history", rows[2].Value);
+                rows[1].Elements(ns + "c").First(c => (string?)c.Attribute("r") == "F2").AddBeforeSelf(
+                    new XElement(ns + "c", new XAttribute("r", "C2"), new XElement(ns + "v", "3.125")),
+                    new XElement(ns + "c", new XAttribute("r", "D2"), new XElement(ns + "v", "4.50")));
+                entry.Delete();
+                using var output = archive.CreateEntry("xl/worksheets/sheet1.xml").Open();
+                sheet.Save(output);
+            }
+
+            workbook.Position = 0;
+            var checkedFile = await documents.ImportOpeningWorkbookAsync(workbook, true, default);
+            Assert.Null(checkedFile.DraftId);
+            Assert.Equal(item, Assert.Single(checkedFile.Rows).ItemId);
+            Assert.Equal(1, checkedFile.Valid);
+            Assert.Equal(0, await OnHandAsync(item));
+
+            workbook.Position = 0;
+            var imported = await documents.ImportOpeningWorkbookAsync(workbook, false, default);
+            await documents.PostAsync(StockDocumentKind.Opening, imported.DraftId!.Value, default);
+            Assert.Equal(3.125m, await OnHandAsync(item));
+            Assert.Equal(2, await OnHandAsync(alreadyStocked));
+
+            workbook.Position = 0;
+            var repeated = await documents.ImportOpeningWorkbookAsync(workbook, false, default);
+            Assert.Equal(1, repeated.Invalid);
+            Assert.Null(repeated.DraftId);
+            return true;
+        });
     }
 
     [PostgresFact]

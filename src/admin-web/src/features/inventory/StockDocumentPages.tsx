@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
@@ -127,18 +128,55 @@ export function StockDocumentListPage({ kind }: { kind: DocumentKind }) {
 
 function OpeningImport() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [problem, setProblem] = useState<ApiProblem | null>(null);
+  const [busy, setBusy] = useState(false);
+  const download = async () => {
+    setBusy(true);
+    setProblem(null);
+    try {
+      const url = URL.createObjectURL(
+        await inventoryApi.downloadOpeningTemplate(),
+      );
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'opening-stock.xlsx';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      // Axios returns API errors as blobs for download requests.
+      if (axios.isAxiosError(error) && error.response?.data instanceof Blob) {
+        try {
+          error.response.data = JSON.parse(await error.response.data.text());
+        } catch {
+          // Keep the original error if the response is not JSON.
+        }
+      }
+      setProblem(describeError(error));
+    } finally {
+      setBusy(false);
+    }
+  };
   const run = async (dryRun: boolean) => {
     if (!file) return;
+    setBusy(true);
     setProblem(null);
     try {
       const r = await inventoryApi.importOpening(file, dryRun);
       setResult(r);
-      if (r.draftId) navigate(`/inventory/opening/${r.draftId}`);
+      if (r.draftId) {
+        void queryClient.invalidateQueries({
+          queryKey: ['stock-documents', 'Opening'],
+        });
+        navigate(`/inventory/opening/${r.draftId}`);
+      }
     } catch (error) {
+      setResult(null);
       setProblem(describeError(error));
+    } finally {
+      setBusy(false);
     }
   };
   return (
@@ -147,32 +185,45 @@ function OpeningImport() {
         Import from a spreadsheet
       </Typography>
       <p className="muted">
-        CSV columns:{' '}
-        <span className="mono">sku, quantity, unit_cost, selling_price</span>{' '}
-        (selling price optional). Check first, then import to create a draft you
-        can review and post.
+        Download the Excel workbook with all current items. Enter the opening
+        quantity and unit cost for items without stock history. Blank and zero
+        quantities are skipped in Excel. Import up to 2,000 filled rows at a
+        time, then review and post the draft to update stock.
       </p>
-      <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-        <Button variant="outlined" component="label">
-          Choose CSV file
+      <Stack
+        direction="row"
+        sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 2 }}
+      >
+        <Button
+          variant="outlined"
+          disabled={busy}
+          onClick={() => void download()}
+        >
+          Download Excel template
+        </Button>
+        <Button variant="outlined" component="label" disabled={busy}>
+          Choose Excel or CSV file
           <input
             hidden
             type="file"
-            accept=".csv,text/csv"
+            accept=".xlsx,.csv"
+            disabled={busy}
             onChange={(e) => {
               setFile(e.target.files?.[0] ?? null);
               setResult(null);
+              setProblem(null);
+              e.target.value = '';
             }}
           />
         </Button>
         <span>{file?.name ?? 'No file chosen'}</span>
-        <Button disabled={!file} onClick={() => void run(true)}>
+        <Button disabled={busy || !file} onClick={() => void run(true)}>
           Check file
         </Button>
         <Button
           variant="contained"
           disabled={
-            !file || !result || result.invalid > 0 || result.valid === 0
+            busy || !file || !result || result.invalid > 0 || result.valid === 0
           }
           onClick={() => void run(false)}
         >
@@ -183,12 +234,17 @@ function OpeningImport() {
       {result && (
         <>
           <Alert
-            severity={result.invalid > 0 ? 'warning' : 'success'}
+            severity={
+              result.invalid > 0 || result.valid === 0 ? 'warning' : 'success'
+            }
             sx={{ mt: 2 }}
           >
             {result.valid} row{result.valid === 1 ? '' : 's'} ready,{' '}
             {result.invalid} with problems.
             {result.invalid > 0 && ' Fix the file and check it again.'}
+            {result.invalid === 0 &&
+              result.valid === 0 &&
+              ' Enter an opening quantity and unit cost for at least one item.'}
           </Alert>
           {result.invalid > 0 && (
             <ul>
