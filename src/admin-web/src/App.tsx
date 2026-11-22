@@ -122,14 +122,45 @@ function RequirePermission({
 function Workspace() {
   const { state, logout } = useAuth();
   const [changing, setChanging] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(true);
   if (state.status !== 'signedIn') return null;
   const { user, menus } = state;
   return (
-    <Box className="admin-shell">
+    <Box className={menuOpen ? 'admin-shell' : 'admin-shell menu-collapsed'}>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <Box component="aside" className="sidebar">
+      <header className="topbar">
+        <Button
+          size="small"
+          className="menu-toggle"
+          aria-controls="admin-sidebar"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          {menuOpen ? 'Hide menu' : 'Show menu'}
+        </Button>
+        <span className="topbar-user">
+          {user.displayName}
+          {user.roles.length > 0 && (
+            <span className="muted"> · {user.roles.join(', ')}</span>
+          )}
+        </span>
+        <span className="topbar-actions">
+          <Button size="small" onClick={() => setChanging(true)}>
+            Change password
+          </Button>
+          <Button size="small" onClick={() => void logout()}>
+            Sign out
+          </Button>
+        </span>
+      </header>
+      <Box
+        component="aside"
+        className="sidebar"
+        id="admin-sidebar"
+        hidden={!menuOpen}
+      >
         <Link to="/" className="wordmark">
           <span className="brand-mark" aria-hidden="true">
             S
@@ -141,22 +172,6 @@ function Workspace() {
         <p className="sidebar-foot">New Zealand shop</p>
       </Box>
       <Box className="admin-content">
-        <header className="topbar">
-          <span>
-            {user.displayName}
-            {user.roles.length > 0 && (
-              <span className="muted"> · {user.roles.join(', ')}</span>
-            )}
-          </span>
-          <span className="topbar-actions">
-            <Button size="small" onClick={() => setChanging(true)}>
-              Change password
-            </Button>
-            <Button size="small" onClick={() => void logout()}>
-              Sign out
-            </Button>
-          </span>
-        </header>
         <Box component="main" id="main" className="main-content" tabIndex={-1}>
           <Routes>
             <Route
