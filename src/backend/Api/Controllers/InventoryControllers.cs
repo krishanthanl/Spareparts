@@ -83,12 +83,24 @@ public sealed class StockAdjustmentsController(IStockDocumentService documents) 
 public sealed class OpeningStockController(IStockDocumentService documents) : StockDocumentsControllerBase(documents, StockDocumentKind.Opening)
 {
     public const long MaxCsvBytes = 512 * 1024;
+    public const long MaxWorkbookBytes = 8 * 1024 * 1024;
 
-    /// <summary>CSV: sku,quantity,unit_cost,selling_price. Dry run by default.</summary>
+    [HttpGet("template")]
+    public async Task<FileContentResult> Template(CancellationToken ct) =>
+        File(await Documents.ExportOpeningWorkbookAsync(ct),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "opening-stock.xlsx");
+
+    /// <summary>Opening-stock XLSX template or CSV. Dry run by default.</summary>
     [HttpPost("import")]
-    [RequestSizeLimit(MaxCsvBytes + 64 * 1024)]
+    [RequestSizeLimit(MaxWorkbookBytes + 64 * 1024)]
     public async Task<OpeningImportResult> Import(IFormFile file, [FromQuery] bool dryRun = true, CancellationToken ct = default)
     {
+        if (string.Equals(Path.GetExtension(file.FileName), ".xlsx", StringComparison.OrdinalIgnoreCase))
+        {
+            if (file.Length > MaxWorkbookBytes) throw new FluentValidation.ValidationException([new FluentValidation.Results.ValidationFailure("File", "The Excel file is too large (8 MB at most).")]);
+            using var workbook = file.OpenReadStream();
+            return await Documents.ImportOpeningWorkbookAsync(workbook, dryRun, ct);
+        }
         if (file.Length > MaxCsvBytes) throw new FluentValidation.ValidationException([new FluentValidation.Results.ValidationFailure("File", "The file is too large (512 KB at most).")]);
         using var reader = new StreamReader(file.OpenReadStream());
         return await Documents.ImportOpeningAsync(await reader.ReadToEndAsync(ct), dryRun, ct);

@@ -16,6 +16,21 @@ namespace Backend.UnitTests;
 
 public sealed class ApiTests
 {
+    [Theory]
+    [InlineData("{\"lines\":[],\"fulfillment\":\"Pickup\"}")]
+    [InlineData("{\"lines\":[{\"itemId\":\"8dbac261-8b23-44ff-9019-7eb9bf289e09\",\"quantity\":1}],\"fulfillment\":\"Delivery\",\"postcode\":\"abc\"}")]
+    [InlineData("{\"lines\":[{\"itemId\":\"8dbac261-8b23-44ff-9019-7eb9bf289e09\",\"quantity\":1}],\"fulfillment\":\"Pickup\",\"total\":0}")]
+    public async Task Checkout_quote_rejects_invalid_input_before_reading_the_database(string request)
+    {
+        await using var factory = new FoundationFactory();
+        using var client = factory.CreateClient();
+        using var body = new StringContent(request, System.Text.Encoding.UTF8, "application/json");
+        using var response = await client.PostAsync("/api/checkout/quote", body);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType!.MediaType);
+    }
+
     [Fact]
     public async Task Liveness_is_independent_of_database_and_readiness_fails_safely()
     {

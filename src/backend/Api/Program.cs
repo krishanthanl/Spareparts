@@ -24,10 +24,30 @@ using Serilog;
 using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddSerilog(logging => logging.MinimumLevel.Information()
-    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-    .MinimumLevel.Override("Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware", LogEventLevel.Fatal)
-    .Enrich.FromLogContext().WriteTo.Console());
+SentrySetup.Configure(builder);
+var sentryEnabled = SentrySetup.IsEnabled(builder.Configuration);
+builder.Services.AddSerilog(logging =>
+{
+    logging.MinimumLevel.Information()
+        .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+        .MinimumLevel.Override("Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware", LogEventLevel.Fatal)
+        .Enrich.FromLogContext().WriteTo.Console();
+    // Only errors go to Sentry. Errors logged by our own code outside a request (background workers)
+    // become events; request failures are reported by GlobalExceptionHandler, so its log line is left
+    // out to avoid duplicates. Framework errors (Microsoft.*, e.g. EF "Failed executing DbCommand") are
+    // left out too: the same failure already reaches Sentry as the exception our code logs or throws.
+    // No info/warning breadcrumbs are sent.
+    if (sentryEnabled)
+        logging.WriteTo.Logger(sentry => sentry
+            .MinimumLevel.Error()
+            .Filter.ByExcluding(Serilog.Filters.Matching.FromSource<GlobalExceptionHandler>())
+            .Filter.ByExcluding(Serilog.Filters.Matching.FromSource("Microsoft"))
+            .WriteTo.Sentry(options =>
+            {
+                options.MinimumBreadcrumbLevel = LogEventLevel.Fatal;
+                options.MinimumEventLevel = LogEventLevel.Error;
+            }));
+});
 builder.Services.AddOptions<DatabaseSettings>().BindConfiguration("ConnectionStrings")
     .Validate(x => DatabaseSettings.IsValid(x.DefaultConnection), "A valid database connection is required; configure ConnectionStrings:DefaultConnection using secrets or environment variables.")
     .Validate(x => builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing") || (DatabaseSettings.IsValid(x.DefaultConnection) && new Npgsql.NpgsqlConnectionStringBuilder(x.DefaultConnection).SslMode == Npgsql.SslMode.VerifyFull),
@@ -54,6 +74,10 @@ builder.Services.AddDbContext<AppDbContext>((services, options) => options
 var storageSettings = builder.Configuration.GetSection("Storage").Get<StorageSettings>() ?? new StorageSettings();
 storageSettings.LocalRoot = Path.GetFullPath(storageSettings.LocalRoot, builder.Environment.ContentRootPath);
 builder.Services.AddCatalogInfrastructure(storageSettings);
+builder.Services.AddScoped<Application.Checkout.CheckoutQuoteService>();
+builder.Services.AddScoped<Infrastructure.Sales.CheckoutOrders>();
+builder.Services.AddScoped<Application.Checkout.ICheckoutOrders>(services => services.GetRequiredService<Infrastructure.Sales.CheckoutOrders>());
+if (!builder.Environment.IsEnvironment("Testing")) builder.Services.AddHostedService<Api.CheckoutExpiryWorker>();
 builder.Services.AddSingleton(builder.Configuration.GetSection(Application.Sales.ShopSettings.SectionName).Get<Application.Sales.ShopSettings>() ?? new Application.Sales.ShopSettings());
 var allowEphemeralKey = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing");
 var ephemeralKey = JwtSettings.EphemeralKey();
@@ -80,6 +104,9 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(AuthController.LoginRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
         http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.AddPolicy(CheckoutController.RateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     options.OnRejected = async (context, ct) =>
         await Results.Problem(statusCode: 429, title: "Too many requests.", detail: "Too many attempts. Wait a minute and try again.").ExecuteAsync(context.HttpContext);
 });

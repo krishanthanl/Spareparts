@@ -15,7 +15,21 @@ namespace Infrastructure.Inventory;
 /// <summary>Stock adjustments and opening stock (same tables, different kind and rules).</summary>
 public sealed class StockDocumentService(AppDbContext db, ICurrentActor actor) : IStockDocumentService
 {
-    public const int MaxImportRows = 2000;
+    public const int MaxImportRows = InventoryRules.MaxOpeningLines;
+
+    public async Task<byte[]> ExportOpeningWorkbookAsync(CancellationToken ct)
+    {
+        var items = await db.Items.AsNoTracking().OrderBy(x => x.Sku)
+            .Select(x => new OpeningStockWorkbook.ItemRow(x.Sku, x.Name, db.StockMovements.Any(m => m.ItemId == x.Id)))
+            .ToListAsync(ct);
+        return OpeningStockWorkbook.Write(items, ct);
+    }
+
+    public async Task<OpeningImportResult> ImportOpeningWorkbookAsync(Stream workbook, bool dryRun, CancellationToken ct)
+    {
+        var rows = OpeningStockWorkbook.Read(workbook, ct);
+        return await ImportOpeningRowsAsync(rows, "Imported from Excel", dryRun, ct);
+    }
 
     public async Task<PagedResult<StockDocumentSummaryDto>> ListAsync(StockDocumentKind kind, DocumentListRequest request, CancellationToken ct)
     {
@@ -134,14 +148,22 @@ public sealed class StockDocumentService(AppDbContext db, ICurrentActor actor) :
             if (i == 0 && cells[0].Equals("sku", StringComparison.OrdinalIgnoreCase)) continue;
             parsed.Add((i + 1, Item.NormalizeSku(cells[0]), cells));
         }
+        return await ImportOpeningRowsAsync(parsed, "Imported from CSV", dryRun, ct);
+    }
+
+    private async Task<OpeningImportResult> ImportOpeningRowsAsync(
+        IReadOnlyList<(int Line, string Sku, string[] Cells)> parsed, string notes, bool dryRun, CancellationToken ct)
+    {
+        if (parsed.Count > MaxImportRows) throw Invalid("File", $"At most {MaxImportRows} filled rows per import.");
         var skus = parsed.Select(x => x.Sku).Distinct().ToList();
         var items = await db.Items.AsNoTracking().Where(x => skus.Contains(x.Sku)).ToDictionaryAsync(x => x.Sku, x => new { x.Id, x.Name }, ct);
-        var withStock = (await db.StockMovements.Where(m => items.Values.Select(v => v.Id).Contains(m.ItemId)).Select(m => m.ItemId).Distinct().ToListAsync(ct)).ToHashSet();
+        var itemIds = items.Values.Select(v => v.Id).ToArray();
+        var withStock = (await db.StockMovements.Where(m => itemIds.Contains(m.ItemId)).Select(m => m.ItemId).Distinct().ToListAsync(ct)).ToHashSet();
         var seen = new HashSet<string>();
         var rows = new List<OpeningImportRow>();
         foreach (var (line, sku, cells) in parsed)
         {
-            decimal? Number(int index) => cells.Length > index && decimal.TryParse(cells[index], NumberStyles.Number, CultureInfo.InvariantCulture, out var v) ? v : null;
+            decimal? Number(int index) => cells.Length > index && decimal.TryParse(cells[index], NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : null;
             var (qty, cost, price) = (Number(1), Number(2), cells.Length > 3 && cells[3].Length > 0 ? Number(3) : null);
             string? error = null;
             if (cells.Length < 3) error = "Expected: sku, quantity, unit cost, selling price (optional).";
@@ -149,15 +171,15 @@ public sealed class StockDocumentService(AppDbContext db, ICurrentActor actor) :
             else if (!seen.Add(sku)) error = "This SKU appears more than once.";
             else if (withStock.Contains(items[sku].Id)) error = "This item already has stock history.";
             else if (qty is not > 0 || !InventoryRules.ValidQuantityScale(qty.Value) || qty > InventoryRules.MaxQuantity) error = "Quantity must be more than 0, at most 3 decimals.";
-            else if (cost is not >= 0 || !InventoryRules.HasCents(cost.Value)) error = "Unit cost must be 0 or more, in dollars and cents.";
-            else if (cells.Length > 3 && cells[3].Length > 0 && (price is not > 0 || !InventoryRules.HasCents(price.Value))) error = "Selling price must be more than 0, in dollars and cents.";
+            else if (cost is not >= 0 || cost > InventoryRules.MaxMoney || !InventoryRules.HasCents(cost.Value)) error = $"Unit cost must be between 0 and {InventoryRules.MaxMoney}, in dollars and cents.";
+            else if (cells.Length > 3 && cells[3].Length > 0 && (price is not > 0 || price > InventoryRules.MaxMoney || !InventoryRules.HasCents(price.Value))) error = $"Selling price must be more than 0 and at most {InventoryRules.MaxMoney}, in dollars and cents.";
             var found = items.TryGetValue(sku, out var it) ? it : null;
             rows.Add(new OpeningImportRow(line, sku, qty, cost, price, found?.Id, found?.Name, error));
         }
         var valid = rows.Count(r => r.Error is null);
         var invalid = rows.Count - valid;
         if (dryRun || invalid > 0 || valid == 0) return new OpeningImportResult(true, valid, invalid, rows, null);
-        var draft = await CreateAsync(StockDocumentKind.Opening, new StockDocumentInput(AdjustmentReason.Opening, "Imported from CSV",
+        var draft = await CreateAsync(StockDocumentKind.Opening, new StockDocumentInput(AdjustmentReason.Opening, notes,
             rows.Select(r => new StockDocumentLineInput(r.ItemId!.Value, r.Quantity!.Value, r.UnitCost, r.SellingPrice)).ToList(), null), ct);
         return new OpeningImportResult(false, valid, 0, rows, draft.Id);
     }

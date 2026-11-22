@@ -21,17 +21,30 @@ button {
   outline-offset: 4px;
 }
 .admin-shell {
-  display: flex;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
   min-height: 100vh;
 }
+.admin-shell.menu-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
 .sidebar {
-  width: 240px;
-  flex-shrink: 0;
+  grid-column: 1;
+  grid-row: 1 / 3;
+  align-self: start;
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow-y: auto;
   padding: 30px 22px;
   background: #18354a;
   color: white;
   display: flex;
   flex-direction: column;
+}
+.sidebar[hidden] {
+  display: none;
 }
 .wordmark {
   color: white;
@@ -77,21 +90,34 @@ button {
   font-size: 13px;
 }
 .admin-content {
+  grid-column: 2;
   min-width: 0;
-  flex: 1;
   display: flex;
   flex-direction: column;
 }
 .topbar {
-  height: 76px;
-  padding: 0 40px;
+  grid-column: 2;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-height: 76px;
+  padding: 8px 40px;
   display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
   align-items: center;
-  justify-content: space-between;
   background: white;
   border-bottom: 1px solid #dce4ec;
   font-size: 14px;
   color: #536b7a;
+}
+.topbar-user {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.topbar .menu-toggle {
+  white-space: nowrap;
 }
 .main-content {
   padding: 48px 40px;
@@ -163,12 +189,19 @@ button {
   margin: auto;
 }
 @media (max-width: 700px) {
-  .admin-shell {
+  .admin-shell,
+  .admin-shell.menu-collapsed {
+    display: flex;
     flex-direction: column;
   }
   .sidebar {
+    position: static;
     width: 100%;
+    height: auto;
     padding: 20px;
+  }
+  .admin-content {
+    flex: 1;
   }
   .sidebar-description,
   .sidebar-foot {
@@ -184,8 +217,8 @@ button {
     padding: 8px 10px;
   }
   .topbar {
-    height: 56px;
-    padding: 0 22px;
+    min-height: 56px;
+    padding: 4px 12px;
   }
   .main-content {
     padding: 32px 22px;

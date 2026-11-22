@@ -2104,6 +2104,17 @@ namespace Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<DateTimeOffset?>("CheckoutHoldUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CheckoutKeyHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("CheckoutRequestHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<DateTimeOffset?>("ConfirmedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -2246,6 +2257,12 @@ namespace Infrastructure.Persistence.Migrations
                         .HasColumnName("xmin");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CheckoutHoldUntil")
+                        .HasFilter("\"Status\" = 1 AND \"CheckoutHoldUntil\" IS NOT NULL");
+
+                    b.HasIndex("CheckoutKeyHash")
+                        .IsUnique();
 
                     b.HasIndex("CustomerId");
 

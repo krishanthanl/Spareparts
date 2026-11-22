@@ -6,6 +6,7 @@ namespace Application.Inventory;
 public static class InventoryRules
 {
     public const int MaxLines = 200;
+    public const int MaxOpeningLines = 2000;
     public const int MaxQuantity = 100_000;
     public const decimal MaxMoney = 1_000_000m;
 
@@ -63,7 +64,9 @@ public sealed class StockDocumentInputValidator : AbstractValidator<StockDocumen
     {
         RuleFor(x => x.Reason).IsInEnum();
         RuleFor(x => x.Notes).MaximumLength(1000);
-        RuleFor(x => x.Lines).NotNull().Must(x => x.Count <= InventoryRules.MaxLines).WithMessage($"At most {InventoryRules.MaxLines} lines.")
+        RuleFor(x => x.Lines).NotNull().Must((input, lines) =>
+                lines.Count <= (input.Reason == AdjustmentReason.Opening ? InventoryRules.MaxOpeningLines : InventoryRules.MaxLines))
+            .WithMessage(input => $"At most {(input.Reason == AdjustmentReason.Opening ? InventoryRules.MaxOpeningLines : InventoryRules.MaxLines)} lines.")
             .Must(x => x.Select(l => l.ItemId).Distinct().Count() == x.Count).WithMessage("Each item can appear only once.");
         RuleForEach(x => x.Lines).ChildRules(line =>
         {

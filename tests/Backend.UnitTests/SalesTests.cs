@@ -168,10 +168,11 @@ public sealed class SalesQueryTranslationTests
             .UseNpgsql("Host=localhost;Database=test").Options);
         var ledger = typeof(Infrastructure.DependencyInjection).Assembly.GetType("Infrastructure.Inventory.StockLedger")!;
         var method = ledger.GetMethod("Reservations")!;
-        var query = (IQueryable)method.Invoke(null, [db, new[] { Guid.NewGuid() }])!;
+        var query = (IQueryable)method.Invoke(null, [db, new[] { Guid.NewGuid() }, Guid.NewGuid()])!;
         var sql = Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToQueryString(query);
         Assert.Contains("sales_order_lines", sql);
         Assert.Contains("stock_issue_lines", sql);
+        Assert.Contains("CheckoutHoldUntil", sql);
         Assert.Contains("GROUP BY", sql);
     }
 }
